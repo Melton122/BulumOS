@@ -1,0 +1,14 @@
+#!/bin/sh
+case "$1" in
+start)
+    if [ -e /proc/sys/kernel/hotplug ]; then
+        echo /sbin/mdev > /proc/sys/kernel/hotplug
+    fi
+    mdev -s
+    ;;
+stop)
+    if [ -e /proc/sys/kernel/hotplug ]; then
+        echo "" > /proc/sys/kernel/hotplug
+    fi
+    ;;
+esac

@@ -1,0 +1,6 @@
+NAME=ntpd
+DESC=NTP time sync
+DEPS=network
+RESPAWN=1
+ONESHOT=0
+PIDFILE=

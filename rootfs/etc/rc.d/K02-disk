@@ -1,0 +1,4 @@
+#!/bin/sh
+# BulumOS shutdown: unmount disk
+sync
+umount /mnt/disk 2>/dev/null || true

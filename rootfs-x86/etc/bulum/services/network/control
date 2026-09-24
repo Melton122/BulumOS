@@ -1,0 +1,26 @@
+#!/bin/sh
+case "$1" in
+start)
+    ifconfig lo 127.0.0.1 up
+    bnet apply || {
+        echo "network: bnet apply failed" >&2
+        exit 1
+    }
+    ;;
+stop)
+    killall udhcpc 2>/dev/null
+    if [ -f /var/run/bulum-network.pid ]; then
+        kill $(cat /var/run/bulum-network.pid 2>/dev/null) 2>/dev/null
+    fi
+    for i in /sys/class/net/*; do
+        [ -e "$i" ] || continue
+        n=$(basename "$i")
+        [ "$n" = "lo" ] && continue
+        ifconfig "$n" down 2>/dev/null
+    done
+    ifconfig lo down 2>/dev/null
+    ;;
+status)
+    bnet status
+    ;;
+esac

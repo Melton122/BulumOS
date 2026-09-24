@@ -1,0 +1,6 @@
+name=Users
+icon=users
+exec=internal:users
+category=System
+version=1.0.0
+description=View user accounts

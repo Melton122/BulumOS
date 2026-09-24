@@ -1,0 +1,6 @@
+name=Bulum Packages
+icon=packages
+exec=internal:packages
+category=System
+version=1.0.0
+description=Install and remove packages

@@ -1,0 +1,74 @@
+# =========================
+# BulumOS build artifacts
+# =========================
+
+*.img
+*.iso
+*.cpio
+*.cpio.gz
+*.deb
+
+# Kernel/build output
+*.o
+*.a
+*.ko
+*.map
+
+# Build directories
+build/
+out/
+dist/
+
+# Logs
+*.log
+
+# QEMU/runtime files
+*.pid
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Secrets / credentials
+*.key
+*.pem
+*.secret
+.env
+# Credentials
+rootfs*/etc/shadow
+rootfs*/etc/shadow-
+rootfs*/etc/gshadow
+rootfs*/etc/gshadow-
+# SSH credentials/configuration
+rootfs*/root/.ssh/authorized_keys
+rootfs*/home/*/.ssh/authorized_keys
+
+# SSH private keys
+**/ssh_host_*_key
+**/dropbear_*_host_key
+**/*.pem
+**/*.key
+# Local caches
+.cache/
+
+# =========================
+# Kernel source tree: keep only the per-arch configs and the custom
+# BulumOS driver; the rest of the kernel tree (full Linux + busybox
+# source, several GB) is not part of the public repo.
+# Note: re-including kernel/drivers/bulum forces git to descend into
+# kernel/drivers/, so that level is re-excluded explicitly.
+# =========================
+kernel/*
+kernel/drivers/*
+!kernel/.config.arm64
+!kernel/.config.x86_64
+!kernel/drivers/bulum/
+!kernel/drivers/bulum/**
+
+# =========================
+# ISO/EFI build trees
+# =========================
+/iso/
+/iso-x86/
+/iso-vbox/

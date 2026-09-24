@@ -1,0 +1,25 @@
+#!/bin/sh
+case "$1" in
+start)
+    mkdir -p /etc/dropbear
+    chmod 700 /etc/dropbear
+    if [ ! -s /etc/dropbear/dropbear_rsa_host_key ]; then
+        dropbearkey -t rsa -f /etc/dropbear/dropbear_rsa_host_key 2>/dev/null
+        chmod 600 /etc/dropbear/dropbear_rsa_host_key 2>/dev/null
+    fi
+    if [ ! -s /etc/dropbear/dropbear_ed25519_host_key ]; then
+        dropbearkey -t ed25519 -f /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null
+        chmod 600 /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null
+    fi
+    mkdir -p /root/.ssh
+    chmod 700 /root /root/.ssh
+    chown 0:0 /root /root/.ssh
+    touch /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+    dropbear -R -I 300 -K 3600 -P /var/run/dropbear.pid
+    ;;
+stop)
+    kill $(cat /var/run/dropbear.pid 2>/dev/null) 2>/dev/null
+    killall dropbear 2>/dev/null
+    ;;
+esac

@@ -1,0 +1,25 @@
+#!/bin/sh
+# BulumOS service: syslogd + klogd
+case "$1" in
+start)
+    mkdir -p /var/log /var/run
+    syslogd -O /var/log/messages -L -s 1000 -b 4
+    klogd -n > /dev/null 2>&1 &
+    ;;
+stop)
+    killall klogd 2>/dev/null
+    killall syslogd 2>/dev/null
+    ;;
+restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+status)
+    if [ -e /var/run/syslogd.pid ]; then
+        echo "syslogd: running"
+    else
+        echo "syslogd: stopped"
+    fi
+    ;;
+esac

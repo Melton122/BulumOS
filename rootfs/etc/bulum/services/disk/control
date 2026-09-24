@@ -1,0 +1,10 @@
+#!/bin/sh
+case "$1" in
+start)
+    mkdir -p /mnt/disk /var/log /var/run /var/lock /var/www \
+             /var/spool/cron/crontabs /etc/dropbear /root/.ssh
+    ;;
+stop)
+    sync
+    ;;
+esac

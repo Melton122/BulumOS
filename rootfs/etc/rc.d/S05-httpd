@@ -1,0 +1,16 @@
+#!/bin/sh
+# BulumOS service: web server
+case "$1" in
+start)
+    mkdir -p /var/www
+    httpd -h /var/www -p 80
+    ;;
+stop)
+    killall httpd 2>/dev/null
+    ;;
+restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+esac

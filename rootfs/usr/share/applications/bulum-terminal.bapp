@@ -1,0 +1,6 @@
+name=Terminal
+icon=terminal
+exec=internal:terminal
+category=Utilities
+version=1.0.0
+description=BulumOS terminal (bsh)

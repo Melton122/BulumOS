@@ -1,0 +1,6 @@
+NAME=logrotate
+DESC=Log rotation (manual or cron)
+DEPS=
+RESPAWN=0
+ONESHOT=1
+PIDFILE=

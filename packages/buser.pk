@@ -1,0 +1,10 @@
+name=buser
+version=1.0.0
+architecture=%ARCH%
+section=base
+maintainer=BulumOS Team <dev@bulum.local>
+license=MIT
+description=User management tool
+depends=
+files
+/usr/bin/buser

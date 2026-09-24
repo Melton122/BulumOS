@@ -1,0 +1,22 @@
+#!/bin/sh
+case "$1" in
+start)
+    mkdir -p /var/run/bulum /var/log/bulum
+    if /usr/bin/bgfx status > /var/log/bulum/graphics.log 2>&1; then
+        echo "available" > /var/run/bulum/graphics.state
+    else
+        echo "unavailable" > /var/run/bulum/graphics.state
+        echo "graphics unavailable (console mode active)" >> /var/log/bulum/graphics.log
+    fi
+    ;;
+stop)
+    rm -f /var/run/bulum/graphics.state
+    ;;
+status)
+    if [ -f /var/run/bulum/graphics.state ]; then
+        cat /var/run/bulum/graphics.state
+    else
+        echo "not started"
+    fi
+    ;;
+esac

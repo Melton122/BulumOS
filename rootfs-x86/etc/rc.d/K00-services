@@ -1,0 +1,5 @@
+#!/bin/sh
+# BulumOS shutdown: stop all services in reverse order
+for s in $(ls /etc/rc.d/S* 2>/dev/null | sort -r); do
+    "$s" stop 2>/dev/null
+done

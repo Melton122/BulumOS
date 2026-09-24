@@ -1,0 +1,6 @@
+NAME=wifi
+DESC=WiFi supplicant (wpa_supplicant)
+DEPS=network
+RESPAWN=0
+ONESHOT=0
+PIDFILE=/run/wpa_supplicant.pid

@@ -1,0 +1,6 @@
+NAME=httpd
+DESC=Web server (busybox httpd)
+DEPS=network
+RESPAWN=1
+ONESHOT=0
+PIDFILE=

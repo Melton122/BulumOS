@@ -1,0 +1,10 @@
+name=bulum
+version=1.3.0
+architecture=%ARCH%
+section=base
+maintainer=BulumOS Team <dev@bulum.local>
+license=MIT
+description=Package manager (bpk)
+depends=
+files
+/sbin/bulum

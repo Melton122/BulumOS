@@ -1,0 +1,15 @@
+#!/bin/sh
+case "$1" in
+start)
+    mkdir -p /var/www
+    chown httpd:httpd /var/www 2>/dev/null
+    if [ ! -f /var/www/index.html ]; then
+        echo '<html><body><h1>BulumOS</h1><p>It works!</p></body></html>' > /var/www/index.html
+    fi
+    chown httpd:httpd /var/www/index.html 2>/dev/null
+    httpd -h /var/www -p 80 -u httpd
+    ;;
+stop)
+    killall httpd 2>/dev/null
+    ;;
+esac

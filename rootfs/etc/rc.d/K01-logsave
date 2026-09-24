@@ -1,0 +1,9 @@
+#!/bin/sh
+# BulumOS shutdown: persist logs to disk
+if [ -d /mnt/disk/var/log ]; then
+    mkdir -p /mnt/disk/var/log
+fi
+if [ -f /var/log/messages ]; then
+    cp -f /var/log/messages /mnt/disk/var/log/messages 2>/dev/null
+fi
+sync

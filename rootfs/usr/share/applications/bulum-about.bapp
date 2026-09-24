@@ -1,0 +1,6 @@
+name=About BulumOS
+icon=about
+exec=internal:about
+category=System
+version=1.0.0
+description=About BulumOS

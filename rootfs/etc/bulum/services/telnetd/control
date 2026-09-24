@@ -1,0 +1,9 @@
+#!/bin/sh
+case "$1" in
+start)
+    telnetd -p 23 -l /bin/login
+    ;;
+stop)
+    killall telnetd 2>/dev/null
+    ;;
+esac

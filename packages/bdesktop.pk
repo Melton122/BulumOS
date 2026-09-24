@@ -1,0 +1,10 @@
+name=bdesktop
+version=1.0.0
+architecture=%ARCH%
+section=base
+maintainer=BulumOS Team <dev@bulum.local>
+license=MIT
+description=Desktop environment
+depends=
+files
+/usr/bin/bdesktop

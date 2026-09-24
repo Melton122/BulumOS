@@ -1,0 +1,6 @@
+NAME=mdev
+DESC=Device hotplug (mdev)
+DEPS=
+RESPAWN=0
+ONESHOT=1
+PIDFILE=

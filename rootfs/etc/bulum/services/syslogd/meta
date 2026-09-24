@@ -1,0 +1,6 @@
+NAME=syslogd
+DESC=Kernel/system logger
+DEPS=
+RESPAWN=1
+ONESHOT=0
+PIDFILE=

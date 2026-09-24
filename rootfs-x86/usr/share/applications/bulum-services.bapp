@@ -1,0 +1,6 @@
+name=Services
+icon=services
+exec=internal:services
+category=System
+version=1.0.0
+description=Manage bctl services

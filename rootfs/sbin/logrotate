@@ -1,0 +1,25 @@
+#!/bin/sh
+# BulumOS log rotation.
+# usage: logrotate  (rotate /var/log/messages; called from cron or manually)
+#
+# Keeps 4 rotated copies (.1 .. .4). Override target with $LOG.
+# Useful with cron:  */30 * * * * /sbin/logrotate 2>/dev/null
+set -e
+LOG=${LOG:-/var/log/messages}
+
+[ -f "$LOG" ] || exit 0
+KEEP=4
+i=$KEEP
+while [ "$i" -gt 1 ]; do
+    prev=$((i - 1))
+    if [ -f "$LOG.$prev" ]; then
+        mv -f "$LOG.$prev" "$LOG.$i" 2>/dev/null || true
+    fi
+    i=$prev
+done
+if [ -f "$LOG" ]; then
+    mv -f "$LOG" "$LOG.1"
+fi
+: > "$LOG"
+chmod 640 "$LOG" 2>/dev/null || true
+exit 0

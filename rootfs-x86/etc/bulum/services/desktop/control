@@ -1,0 +1,29 @@
+#!/bin/sh
+PIDFILE=/var/run/bulum/desktop.pid
+case "$1" in
+start)
+    mkdir -p /var/run/bulum /var/log/bulum
+    if ! /usr/bin/bgfx status >/dev/null 2>&1; then
+        echo "desktop deferred: graphics unavailable" > /var/run/bulum/desktop.state
+        exit 0
+    fi
+    /usr/bin/bdesktop > /var/log/bulum/desktop.log 2>&1 &
+    echo $! > "$PIDFILE"
+    echo "running" > /var/run/bulum/desktop.state
+    ;;
+stop)
+    if [ -f "$PIDFILE" ]; then
+        kill "$(cat "$PIDFILE")" 2>/dev/null
+        rm -f "$PIDFILE"
+    fi
+    killall bdesktop 2>/dev/null
+    echo "stopped" > /var/run/bulum/desktop.state
+    ;;
+status)
+    if [ -f /var/run/bulum/desktop.state ]; then
+        cat /var/run/bulum/desktop.state
+    else
+        echo "not started"
+    fi
+    ;;
+esac

@@ -1,0 +1,10 @@
+name=bnet
+version=1.0.0
+architecture=%ARCH%
+section=base
+maintainer=BulumOS Team <dev@bulum.local>
+license=MIT
+description=Network configuration tool
+depends=
+files
+/usr/bin/bnet

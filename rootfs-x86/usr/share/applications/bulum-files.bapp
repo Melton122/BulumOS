@@ -1,0 +1,6 @@
+name=Bulum Files
+icon=files
+exec=internal:files
+category=Files
+version=1.0.0
+description=Browse and manage files

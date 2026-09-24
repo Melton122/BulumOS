@@ -1,0 +1,10 @@
+#!/bin/sh
+case "$1" in
+start)
+    mkdir -p /var/spool/cron/crontabs
+    crond -b -l 8
+    ;;
+stop)
+    killall crond 2>/dev/null
+    ;;
+esac

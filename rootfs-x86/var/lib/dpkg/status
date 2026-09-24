@@ -1,0 +1,242 @@
+Package: bctl
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 879
+Architecture: x86_64
+Version: 1.0.0
+Description: System control utility
+License: MIT
+Origin: official
+
+Package: bdesktop
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 943
+Architecture: x86_64
+Version: 1.0.0
+Description: Desktop environment
+License: MIT
+Origin: official
+
+Package: bdevices
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 831
+Architecture: x86_64
+Version: 1.0.0
+Description: Device inventory
+License: MIT
+Origin: official
+
+Package: bdriver
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 827
+Architecture: x86_64
+Version: 1.0.0
+Description: Driver information
+License: MIT
+Origin: official
+
+Package: bfirewall
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 699
+Architecture: x86_64
+Version: 1.0.0
+Description: Firewall rules tool
+License: MIT
+Origin: official
+
+Package: bgfx
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 2523
+Architecture: x86_64
+Version: 1.0.0
+Description: Graphics framework + demos
+License: MIT
+Origin: official
+
+Package: bhardware
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 831
+Architecture: x86_64
+Version: 1.0.0
+Description: Hardware detection
+License: MIT
+Origin: official
+
+Package: binput
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 703
+Architecture: x86_64
+Version: 1.0.0
+Description: Input framework test
+License: MIT
+Origin: official
+
+Package: blog
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 735
+Architecture: x86_64
+Version: 1.0.0
+Description: System log viewer
+License: MIT
+Origin: official
+
+Package: bnet
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 1067
+Architecture: x86_64
+Version: 1.0.0
+Description: Network configuration tool
+License: MIT
+Origin: official
+
+Package: bnetwork
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 831
+Architecture: x86_64
+Version: 1.0.0
+Description: Network manager
+License: MIT
+Origin: official
+
+Package: bpower
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 827
+Architecture: x86_64
+Version: 1.0.0
+Description: Power management
+License: MIT
+Origin: official
+
+Package: bsecure
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 827
+Architecture: x86_64
+Version: 1.0.0
+Description: System security status
+License: MIT
+Origin: official
+
+Package: bsh
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 1083
+Architecture: x86_64
+Version: 1.0.0
+Description: BulumOS POSIX shell
+License: MIT
+Origin: official
+
+Package: bstatus
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 827
+Architecture: x86_64
+Version: 1.0.0
+Description: System status daemon
+License: MIT
+Origin: official
+
+Package: bterm
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 715
+Architecture: x86_64
+Version: 1.0.0
+Description: BulumOS terminal emulator
+License: MIT
+Origin: official
+
+Package: btime
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 895
+Architecture: x86_64
+Version: 1.0.0
+Description: Clock / time settings
+License: MIT
+Origin: official
+
+Package: bulum
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 939
+Architecture: x86_64
+Version: 1.3.0
+Description: Package manager (bpk)
+License: MIT
+Origin: official
+
+Package: busb
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 703
+Architecture: x86_64
+Version: 1.0.0
+Description: USB bus viewer
+License: MIT
+Origin: official
+
+Package: buser
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 923
+Architecture: x86_64
+Version: 1.0.0
+Description: User management tool
+License: MIT
+Origin: official
+
+Package: busybox
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 2412
+Architecture: x86_64
+Version: 1.36.1
+Description: BusyBox multi-call binary
+License: GPL-2.0
+Origin: official
+
+Package: init
+Status: install ok installed
+Priority: required
+Section: base
+Installed-Size: 703
+Architecture: x86_64
+Version: 1.0.0
+Description: BulumOS init
+License: MIT
+Origin: official
+

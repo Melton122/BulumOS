@@ -1,0 +1,10 @@
+name=busb
+version=1.0.0
+architecture=%ARCH%
+section=base
+maintainer=BulumOS Team <dev@bulum.local>
+license=MIT
+description=USB bus viewer
+depends=
+files
+/usr/bin/busb

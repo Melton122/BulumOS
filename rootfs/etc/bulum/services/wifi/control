@@ -1,0 +1,26 @@
+#!/bin/sh
+WPA=/usr/sbin/wpa_supplicant
+CONF=/etc/wpa_supplicant.conf
+PID=/run/wpa_supplicant.pid
+case "$1" in
+start)
+    [ -x "$WPA" ] || { echo "wifi: $WPA not installed (skip)"; exit 0; }
+    IFACE=""
+    for d in /sys/class/net/*; do
+        if [ -e "$d/wireless" ]; then IFACE=${d##*/}; break; fi
+    done
+    [ -n "$IFACE" ] || { echo "wifi: no wireless interface (skip)"; exit 0; }
+    [ -s "$CONF" ] || { echo "wifi: no $CONF (run 'bnet wifi connect'); skip"; exit 0; }
+    mkdir -p /var/run/wpa_supplicant
+    "$WPA" -B -i"$IFACE" -c"$CONF" -P "$PID" 2>/dev/null
+    echo "wifi: wpa_supplicant started on $IFACE"
+    ;;
+stop)
+    [ -f "$PID" ] && kill "$(cat "$PID")" 2>/dev/null
+    killall wpa_supplicant 2>/dev/null
+    true
+    ;;
+restart)
+    $0 stop; sleep 1; $0 start
+    ;;
+esac

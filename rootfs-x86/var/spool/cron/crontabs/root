@@ -1,0 +1,2 @@
+# BulumOS root crontab
+0 3 * * * /etc/cron.daily/logrotate.sh

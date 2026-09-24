@@ -1,0 +1,10 @@
+name=busybox
+version=1.36.1
+architecture=%ARCH%
+section=base
+maintainer=BulumOS Team <dev@bulum.local>
+license=GPL-2.0
+description=BusyBox multi-call binary
+depends=
+files
+/bin/busybox

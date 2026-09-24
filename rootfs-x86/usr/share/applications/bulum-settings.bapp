@@ -1,0 +1,6 @@
+name=Bulum Settings
+icon=settings
+exec=internal:settings
+category=System
+version=1.0.0
+description=System and appearance settings

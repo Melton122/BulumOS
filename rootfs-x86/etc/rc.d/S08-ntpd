@@ -1,0 +1,15 @@
+#!/bin/sh
+# BulumOS service: NTP time sync
+case "$1" in
+start)
+    ntpd -n -N 2>/dev/null &
+    ;;
+stop)
+    killall ntpd 2>/dev/null
+    ;;
+restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+esac

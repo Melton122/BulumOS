@@ -1,0 +1,6 @@
+name=Hardware
+icon=settings
+exec=internal:hardware
+category=System
+version=1.0.0
+description=CPU, memory, GPU, devices and kernel driver framework

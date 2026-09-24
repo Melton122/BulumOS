@@ -1,0 +1,6 @@
+name=Network
+icon=network
+exec=internal:network
+category=System
+version=1.0.0
+description=Network interfaces and DNS

@@ -1,0 +1,6 @@
+NAME=network
+DESC=Network (loopback + bnet apply)
+DEPS=
+RESPAWN=0
+ONESHOT=0
+PIDFILE=/var/run/bulum-network.pid

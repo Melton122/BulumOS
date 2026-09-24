@@ -1,0 +1,9 @@
+#!/bin/sh
+case "$1" in
+start)
+    ntpd -n -N 2>/dev/null &
+    ;;
+stop)
+    killall ntpd 2>/dev/null
+    ;;
+esac

@@ -1,0 +1,7 @@
+#!/bin/bash
+cd ~/BulumOS
+grep -E '^CONFIG_' kernel/.config | grep -E '=(y|m)$' | grep -E 'FRAMEBUFFER|FB_|DRM_VIRTIO|VIRTIO_GPU|VIRTIO_INPUT|VIRTIO_KEYBOARD|VIRTIO_MOUSE|VIRTIO_MMIO|VIRTIO_PCI|^CONFIG_VT|VT_HW|SERIAL_8250|SERIAL_AMBA|SERIAL_EARLY|EXT4|VGA|SYSFS|PROC_FS|TMPFS=' | head -40
+echo "==== console related =="
+grep -E 'CONFIG_(FB|FRAMEBUFFER|DRM_VIRTIO_GPU|VIRTIO_GPU|VT|SERIAL_8250|SERIAL_AMBA|VGA|FBCON)' kernel/.config | head -30
+echo "==== is RAMDISK/initramfs ok =="
+grep -E 'CONFIG_(RD_GZIP|BLK_DEV_INITRD|DEVTMPFS_MOUNT)' kernel/.config

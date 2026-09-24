@@ -1,0 +1,8 @@
+root:x:0:root
+users:x:100:
+video:x:44:
+input:x:45:
+httpd:x:110:
+melton:x:1000:melton
+disk:x:6:
+dialout:x:5:

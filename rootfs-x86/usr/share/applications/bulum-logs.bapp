@@ -1,0 +1,6 @@
+name=Logs
+icon=log
+exec=internal:logs
+category=System
+version=1.0.0
+description=View system logs

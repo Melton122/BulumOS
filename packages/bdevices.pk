@@ -1,0 +1,10 @@
+name=bdevices
+version=1.0.0
+architecture=%ARCH%
+section=base
+maintainer=BulumOS Team <dev@bulum.local>
+license=MIT
+description=Device inventory
+depends=
+files
+/usr/bin/bdevices

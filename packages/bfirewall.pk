@@ -1,0 +1,10 @@
+name=bfirewall
+version=1.0.0
+architecture=%ARCH%
+section=base
+maintainer=BulumOS Team <dev@bulum.local>
+license=MIT
+description=Firewall rules tool
+depends=
+files
+/usr/bin/bfirewall

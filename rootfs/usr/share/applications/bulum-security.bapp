@@ -1,0 +1,6 @@
+name=Security
+icon=security
+exec=internal:security
+category=Security
+version=1.0.0
+description=Security audit and status

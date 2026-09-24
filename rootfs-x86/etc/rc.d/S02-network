@@ -1,0 +1,21 @@
+#!/bin/sh
+# BulumOS service: networking (loopback, DHCP)
+start_net()
+{
+    ifconfig lo 127.0.0.1 up
+    ip link set eth0 up 2>/dev/null
+    udhcpc -i eth0 -s /usr/share/udhcpc/default.script -b -q 2>/dev/null || true
+}
+case "$1" in
+start)
+    start_net
+    ;;
+stop)
+    ifconfig eth0 down 2>/dev/null
+    ifconfig lo down 2>/dev/null
+    ;;
+restart)
+    $0 stop
+    $0 start
+    ;;
+esac

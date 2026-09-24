@@ -1,0 +1,36 @@
+#!/bin/sh
+# BulumOS service: dropbear SSH daemon
+case "$1" in
+start)
+    if [ ! -s /etc/dropbear/dropbear_rsa_host_key ]; then
+        if [ -f /mnt/disk/etc/dropbear/dropbear_rsa_host_key ]; then
+            cp /mnt/disk/etc/dropbear/* /etc/dropbear/ 2>/dev/null
+        else
+            dropbearkey -t rsa -f /etc/dropbear/dropbear_rsa_host_key 2>/dev/null
+            dropbearkey -t ed25519 -f /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null
+        fi
+    fi
+    dropbear -R
+    if [ -d /mnt/disk/etc/dropbear ] && [ ! -f /mnt/disk/etc/dropbear/dropbear_rsa_host_key ]; then
+        cp /etc/dropbear/* /mnt/disk/etc/dropbear/ 2>/dev/null
+    fi
+    mkdir -p /root/.ssh
+    chmod 755 /root
+    chown 0:0 /root
+    ;;
+stop)
+    killall dropbear 2>/dev/null
+    ;;
+restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+status)
+    if pgrep dropbear > /dev/null 2>&1; then
+        echo "dropbear: running"
+    else
+        echo "dropbear: stopped"
+    fi
+    ;;
+esac

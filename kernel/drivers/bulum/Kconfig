@@ -1,0 +1,19 @@
+# BulumOS hardware/driver framework
+config BULUM_DRIVERS
+	tristate "BulumOS driver framework"
+	depends on PROC_FS
+	default y
+	help
+	  BulumOS hardware and driver framework. Registers a BulumOS bus/
+	  driver layer on top of the standard Linux device model and exposes
+	  /proc/bulum/* and /dev/bulum interfaces.
+
+config BULUM_DRIVER_CORE
+	bool "BulumOS driver core"
+	depends on BULUM_DRIVERS
+	default y
+
+config BULUM_DRIVER_DUMMY
+	bool "BulumOS example driver"
+	depends on BULUM_DRIVER_CORE
+	default y

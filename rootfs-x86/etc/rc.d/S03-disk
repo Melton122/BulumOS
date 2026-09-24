@@ -1,0 +1,11 @@
+#!/bin/sh
+# BulumOS service: prepare persistent storage
+# Root filesystem is on the root disk; this just ensures runtime dirs exist.
+case "$1" in
+start)
+    mkdir -p /mnt/disk /var/log /var/run /var/lock /var/www /var/spool/cron/crontabs /etc/dropbear /root/.ssh
+    ;;
+stop)
+    sync
+    ;;
+esac
