@@ -1,6 +1,7 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # Final Phase 9 check: integration into rootfs + services, then host test.
-cd /home/melton/myos
+cd "$ROOT_DIR"
 echo "=================== 1. INTEGRATION ==================="
 bash tools/verify-desktop-integration.sh > /tmp/intel.log 2>&1
 echo "integ rc=$?"

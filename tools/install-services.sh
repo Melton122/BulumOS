@@ -1,14 +1,16 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # BulumOS: install service definitions into rootfs/etc/bulum
 # (meta = key=value, control = start|stop|restart|status script)
 set -e
-cd /home/melton/myos/rootfs/etc/bulum
+BULUMOS_ROOTFS=${BULUMOS_ROOTFS:-"$ROOT_DIR/rootfs"}
+cd "$BULUMOS_ROOTFS"/etc/bulum
 
 rm -rf services enabled
 mkdir -p services enabled
 
-mk() { # mk <name> <desc> <deps> <respawn> <oneshot> <pidfile>
-    local name=$1 desc=$2 deps=$3 respawn=$4 oneshot=$5 pidfile=$6
+mk() { # mk <name> <desc> <deps> <respawn> <oneshot> <pidfile> [enabled]
+    local name=$1 desc=$2 deps=$3 respawn=$4 oneshot=$5 pidfile=$6 enabled=${7:-1}
     mkdir -p "services/$name"
     {
         echo "NAME=$name"
@@ -18,7 +20,9 @@ mk() { # mk <name> <desc> <deps> <respawn> <oneshot> <pidfile>
         echo "ONESHOT=$oneshot"
         echo "PIDFILE=$pidfile"
     } > "services/$name/meta"
-    : > "enabled/$name"
+    if [ "$enabled" != 0 ]; then
+        : > "enabled/$name"
+    fi
 }
 
 # ---- syslogd ----
@@ -63,6 +67,96 @@ stop)
 esac
 EOF
 chmod 755 services/mdev/control
+
+# ---- udev (Phase 15: device manager for Xorg/libinput) --------------
+# Xorg's libinput driver enumerates input devices through libudev, so
+# keyboard and pointer devices only exist for the session when a real
+# udev daemon is running. busybox mdev creates /dev nodes but emits no
+# udev database, so it cannot replace this service.
+mk udev "Device manager (systemd-udevd)" "mdev" 0 0 "/run/udev/udevd.pid"
+cat > services/udev/control <<'EOF'
+#!/bin/sh
+PIDFILE=/run/udev/udevd.pid
+UDEVD=/lib/systemd/systemd-udevd
+LOG=/var/log/bulum/udev-start.log
+
+running() {
+    if [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        return 0
+    fi
+    for proc in /proc/[0-9]*; do
+        [ "$(cat "$proc/comm" 2>/dev/null)" = systemd-udevd ] || continue
+        kill -0 "${proc#/proc/}" 2>/dev/null && return 0
+    done
+    return 1
+}
+
+case "$1" in
+start)
+    # The native (busybox) rootfs has no udev; stay out of the way there.
+    if [ ! -x "$UDEVD" ]; then
+        echo "udev: systemd-udevd not installed (skip)"
+        exit 0
+    fi
+    mkdir -p /run/udev/rules.d /run/udev/data /var/log/bulum
+    chmod 755 /run/udev
+    : > "$LOG"
+    if ! running; then
+        "$UDEVD" --daemon >>"$LOG" 2>&1
+        echo "udevd --daemon exit=$?" >>"$LOG"
+    fi
+    tries=0
+    while [ "$tries" -lt 3 ] && ! running; do
+        sleep 1
+        tries=$((tries + 1))
+    done
+    if ! running; then
+        # --daemon detaches to /dev/null, so the reason only shows in the
+        # foreground; keep this short enough to stay inside bctl's timeout.
+        {
+            echo "--- foreground debug run ---"
+            timeout -s KILL 3 "$UDEVD" --debug --children-max=1 2>&1
+            echo "--- debug run finished (rc=$?) ---"
+            udevadm --version 2>&1
+            ls -la /run/udev 2>&1
+        } >>"$LOG" 2>&1
+        echo "udev: systemd-udevd did not start; see $LOG" >&2
+        exit 1
+    fi
+    # Populate the udev database before returning: Xorg's libinput driver
+    # only accepts devices that carry udev properties such as ID_INPUT_KEYBOARD,
+    # and bctl reaps children of the control script, so this cannot be left
+    # running in the background.
+    udevadm control --reload >>"$LOG" 2>&1
+    echo "control --reload rc=$?" >>"$LOG"
+    # Bound the work to the subsystems the graphical session consumes: a full
+    # device-tree trigger can outrun bctl's start timeout on slow (emulated)
+    # hardware, and Xorg needs the input records before it enumerates devices.
+    udevadm trigger --action=add --type=devices --subsystem-match=input >>"$LOG" 2>&1
+    echo "trigger input rc=$?" >>"$LOG"
+    udevadm trigger --action=add --type=devices --subsystem-match=usb >>"$LOG" 2>&1
+    udevadm settle --timeout=3 >>"$LOG" 2>&1
+    echo "settle rc=$?" >>"$LOG"
+    echo "udev database entries: $(ls /run/udev/data 2>/dev/null | wc -l)" >>"$LOG"
+    ;;
+stop)
+    udevadm control --exit >>"$LOG" 2>&1 || true
+    if running; then
+        kill "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null
+    fi
+    rm -f "$PIDFILE"
+    ;;
+restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+status)
+    if running; then echo running; else echo stopped; fi
+    ;;
+esac
+EOF
+chmod 755 services/udev/control
 
 # ---- disk ----
 mk disk "Prepare persistent storage" "" 0 1 ""
@@ -133,7 +227,7 @@ start)
     chown 0:0 /root /root/.ssh
     touch /root/.ssh/authorized_keys
     chmod 600 /root/.ssh/authorized_keys
-    dropbear -R -I 300 -K 3600 -P /var/run/dropbear.pid
+    dropbear -s -R -I 300 -K 3600 -P /var/run/dropbear.pid
     ;;
 stop)
     kill $(cat /var/run/dropbear.pid 2>/dev/null) 2>/dev/null
@@ -165,7 +259,7 @@ EOF
 chmod 755 services/httpd/control
 
 # ---- telnetd ----
-mk telnetd "Telnet daemon (authenticated)" "network" 1 0 ""
+mk telnetd "Telnet daemon (authenticated)" "network" 1 0 "" 0
 cat > services/telnetd/control <<'EOF'
 #!/bin/sh
 case "$1" in
@@ -215,18 +309,41 @@ chmod 755 services/graphics/control
 # NOTE: the control runs under /bin/sh (busybox ash), which supports $(...);
 # use `kill $(cat pidfile)` + killall for the daemon stop (pkill -F is not
 # portable across busybox builds).
-mk desktop "Desktop shell (bdesktop)" "graphics" 1 0 "/var/run/bulum/desktop.pid"
+#
+# Phase 15: DISABLED at boot - plasma-session (defined below) is now the
+# session service, so the system boots into KDE Plasma instead of bdesktop.
+# The bdesktop service stays installed; start it manually with `bctl start desktop`.
+mk desktop "Desktop shell (bdesktop)" "graphics" 1 0 "/var/run/bulum/desktop.pid" 0
 cat > services/desktop/control <<'EOF'
 #!/bin/sh
 PIDFILE=/var/run/bulum/desktop.pid
 case "$1" in
 start)
     mkdir -p /var/run/bulum /var/log/bulum
+    USER_CONFIG=/etc/bulum/default-user
+    if [ ! -r "$USER_CONFIG" ]; then
+        echo "desktop deferred: no regular user configured" > /var/run/bulum/desktop.state
+        exit 0
+    fi
+    IFS= read -r DESKTOP_USER < "$USER_CONFIG" || DESKTOP_USER=
+    case "$DESKTOP_USER" in
+        ""|*[!a-z0-9_-]*|-*|[0-9]*)
+            echo "desktop refused: invalid configured user" >&2
+            exit 1
+            ;;
+    esac
+    if ! awk -F: -v user="$DESKTOP_USER" \
+        '$1 == user && $3 >= 1000 && $7 != "/bin/false" { found = 1 }
+         END { exit !found }' /etc/passwd; then
+        echo "desktop deferred: configured user is missing or not regular" >&2
+        exit 1
+    fi
     if ! /usr/bin/bgfx status >/dev/null 2>&1; then
         echo "desktop deferred: graphics unavailable" > /var/run/bulum/desktop.state
         exit 0
     fi
-    /usr/bin/bdesktop > /var/log/bulum/desktop.log 2>&1 &
+    su -l -s /bin/bsh -c /usr/bin/bdesktop "$DESKTOP_USER" \
+        > /var/log/bulum/desktop.log 2>&1 &
     echo $! > "$PIDFILE"
     echo "running" > /var/run/bulum/desktop.state
     ;;
@@ -329,6 +446,228 @@ esac
 EOF
 chmod 755 services/wifi/control
 
+
+# ---- dbus (Phase 15: Plasma IPC) -----------------------------
+# System message bus required by KWin/Plasma.  Skips cleanly when
+# dbus-daemon is not installed, so a pre-KDE rootfs boots unchanged.
+mk dbus "D-Bus system message bus (Plasma IPC)" "disk" 1 0 "/run/dbus/pid"
+cat > services/dbus/control <<'EOF'
+#!/bin/sh
+case "$1" in
+start)
+    if ! command -v dbus-daemon >/dev/null 2>&1; then
+        echo "dbus: dbus-daemon not installed (skip)"
+        exit 0
+    fi
+    mkdir -p /run/dbus /var/run/dbus
+    if [ -f /run/dbus/pid ] && kill -0 "$(cat /run/dbus/pid)" 2>/dev/null; then
+        exit 0
+    fi
+    dbus-daemon --system
+    ;;
+stop)
+    [ -f /run/dbus/pid ] && kill "$(cat /run/dbus/pid)" 2>/dev/null
+    killall dbus-daemon 2>/dev/null
+    rm -f /run/dbus/pid
+    ;;
+restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+esac
+EOF
+chmod 755 services/dbus/control
+
+# ---- logind (Phase 15: power control for the Plasma Leave menu) -----
+mk logind "Power control (logind-compatible service)" "dbus" 0 0 "/run/blogind.pid"
+cat > services/logind/control <<'EOF'
+#!/bin/sh
+PIDFILE=/run/blogind.pid
+
+running() {
+    [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null
+}
+
+case "$1" in
+start)
+    if [ ! -x /usr/sbin/blogind ]; then
+        echo "logind: blogind not installed (skip)"
+        exit 0
+    fi
+    mkdir -p /var/log/bulum /run
+    if running; then
+        exit 0
+    fi
+    # Python cold-start under emulation is slow, so do not hold the boot
+    # sequence open for it: D-Bus activation covers the window, and the
+    # session test waits for the bus name before it exercises the service.
+    PYTHONDONTWRITEBYTECODE=1 /usr/sbin/blogind >> /var/log/bulum/blogind.log 2>&1 &
+    echo $! > "$PIDFILE"
+    echo "logind: started blogind pid $!" >&2
+    exit 0
+    ;;
+stop)
+    if running; then
+        kill "$(cat "$PIDFILE")" 2>/dev/null
+    fi
+    rm -f "$PIDFILE"
+    ;;
+restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+status)
+    if running; then echo running; else echo stopped; fi
+    ;;
+esac
+EOF
+chmod 755 services/logind/control
+
+# ---- xorg (Phase 15: X11 server for Plasma) ------------------
+# Follows the same live-probe deferral as the desktop service: never
+# trust /var/run/bulum/graphics.state (bctl overwrites it for oneshots).
+mk xorg "X11 display server (Xorg)" "graphics dbus udev" 1 0 "/var/run/Xorg.pid"
+cat > services/xorg/control <<'EOF'
+#!/bin/sh
+PIDFILE=/var/run/Xorg.pid
+case "$1" in
+start)
+    mkdir -p /var/run /var/log/bulum
+    if ! command -v Xorg >/dev/null 2>&1; then
+        echo "xorg: Xorg not installed (skip)"
+        exit 0
+    fi
+    if ! /usr/bin/bgfx status >/dev/null 2>&1; then
+        echo "xorg deferred: graphics unavailable" > /var/run/bulum/xorg.state
+        exit 0
+    fi
+    Xorg :0 -config /etc/X11/xorg.conf -nolisten tcp -noreset \
+        > /var/log/bulum/xorg.log 2>&1 &
+    echo $! > "$PIDFILE"
+    tries=0
+    while [ "$tries" -lt 15 ]; do
+        if [ -S /tmp/.X11-unix/X0 ]; then
+            echo "running" > /var/run/bulum/xorg.state
+            exit 0
+        fi
+        if ! kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+            echo "xorg failed to start; see /var/log/bulum/xorg.log" >&2
+            exit 1
+        fi
+        sleep 1
+        tries=$((tries + 1))
+    done
+    echo "xorg startup timed out; see /var/log/bulum/xorg.log" >&2
+    exit 1
+    ;;
+stop)
+    [ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
+    killall Xorg 2>/dev/null
+    rm -f "$PIDFILE"
+    echo "stopped" > /var/run/bulum/xorg.state
+    ;;
+restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+status)
+    if [ -f /var/run/bulum/xorg.state ]; then
+        cat /var/run/bulum/xorg.state
+    else
+        echo "not started"
+    fi
+    ;;
+esac
+EOF
+chmod 755 services/xorg/control
+
+# ---- plasma-session (Phase 15 milestone 3) -------------------
+# Mirrors the desktop service: validates /etc/bulum/default-user, defers
+# when graphics or the KDE port is missing.  Runs as the configured user
+# with a private XDG_RUNTIME_DIR and D-Bus session for KDE IPC.
+#
+# Phase 15: this is the boot session service - it replaces the bdesktop
+# `desktop` service (disabled above), so `bctl boot` enters KDE Plasma.
+mk plasma-session "KDE Plasma session (startplasma)" "graphics xorg" 1 0 "/var/run/bulum/plasma.pid"
+cat > services/plasma-session/control <<'EOF'
+#!/bin/sh
+PIDFILE=/var/run/bulum/plasma.pid
+case "$1" in
+start)
+    mkdir -p /var/run/bulum /var/log/bulum
+    USER_CONFIG=/etc/bulum/default-user
+    if [ ! -r "$USER_CONFIG" ]; then
+        echo "plasma-session deferred: no regular user configured" > /var/run/bulum/plasma.state
+        exit 0
+    fi
+    IFS= read -r PUSER < "$USER_CONFIG" || PUSER=
+    case "$PUSER" in
+        ""|*[!a-z0-9_-]*|-*|[0-9]*)
+            echo "plasma-session refused: invalid configured user" >&2
+            exit 1
+            ;;
+    esac
+    if ! awk -F: -v user="$PUSER" \
+        '$1 == user && $3 >= 1000 && $7 != "/bin/false" { found = 1 }
+         END { exit !found }' /etc/passwd; then
+        echo "plasma-session deferred: configured user is missing or not regular" >&2
+        exit 1
+    fi
+    if ! /usr/bin/bgfx status >/dev/null 2>&1; then
+        echo "plasma-session deferred: graphics unavailable" > /var/run/bulum/plasma.state
+        exit 0
+    fi
+    if [ -x /usr/sbin/bulum-plasma-session ]; then
+        SESSION=/usr/sbin/bulum-plasma-session
+    elif [ -x /usr/bin/startplasma-x11 ]; then
+        SESSION=/usr/bin/startplasma-x11
+    else
+        echo "plasma-session deferred: Plasma is not installed" > /var/run/bulum/plasma.state
+        exit 0
+    fi
+    PUID=$(id -u "$PUSER") || exit 1
+    RUNTIME_DIR=/run/user/$PUID
+    mkdir -p "$RUNTIME_DIR"
+    chown "$PUSER" "$RUNTIME_DIR"
+    chmod 700 "$RUNTIME_DIR"
+    if [ ! -S /tmp/.X11-unix/X0 ]; then
+        echo "plasma-session deferred: X11 display :0 is not ready" >&2
+        exit 1
+    fi
+    su -l -s /bin/sh -c \
+        "export DISPLAY=:0 XDG_RUNTIME_DIR=$RUNTIME_DIR; exec dbus-run-session -- $SESSION" \
+        "$PUSER" \
+        > /var/log/bulum/plasma.log 2>&1 &
+    echo $! > "$PIDFILE"
+    echo "running" > /var/run/bulum/plasma.state
+    ;;
+stop)
+    if [ -f "$PIDFILE" ]; then
+        kill "$(cat "$PIDFILE")" 2>/dev/null
+        rm -f "$PIDFILE"
+    fi
+    killall startplasma-x11 plasma_session plasmashell kwin_x11 kwin_wayland \
+        kdeinit5 klauncher ksmserver kactivitymanagerd 2>/dev/null
+    echo "stopped" > /var/run/bulum/plasma.state
+    ;;
+restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+status)
+    if [ -f /var/run/bulum/plasma.state ]; then
+        cat /var/run/bulum/plasma.state
+    else
+        echo "not started"
+    fi
+    ;;
+esac
+EOF
+chmod 755 services/plasma-session/control
 echo "=== installed services ==="
 ls services/ | tr '\n' ' '
 echo

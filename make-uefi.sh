@@ -1,9 +1,10 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS UEFI build: GRUB bootloader + ESP image + hybrid ISO
 # Requires: grub-mkimage (host), arm64-efi GRUB modules in ~/grub-arm64/extracted,
 #           dosfstools+mtools, xorriso, kernel Image + initramfs.cpio.gz in repo.
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 
 MKIMAGE=/usr/bin/grub-mkimage
 MODS=~/grub-arm64/extracted/usr/lib/grub/arm64-efi
@@ -27,7 +28,8 @@ EOF
 
 echo "=== 2. memdisk as FAT (kernel + initramfs + grub.cfg) ==="
 rm -f /tmp/memdisk.img
-dd if=/dev/zero of=/tmp/memdisk.img bs=1M count=58 status=none
+# 58M was enough historically; Image (~53M) + initramfs (~11M) now need more.
+dd if=/dev/zero of=/tmp/memdisk.img bs=1M count=80 status=none
 mkfs.vfat -n MEMDISK /tmp/memdisk.img >/dev/null
 mmd -i /tmp/memdisk.img ::/boot ::/boot/grub
 mcopy -i /tmp/memdisk.img /tmp/grub.cfg ::/boot/grub/grub.cfg
@@ -46,7 +48,8 @@ file iso/EFI/BOOT/BOOTAA64.EFI
 
 echo "=== 4. ESP image (whole-disk FAT: documented AAVMF boot path) ==="
 rm -f /tmp/efiboot.img
-dd if=/dev/zero of=/tmp/efiboot.img bs=1M count=72 status=none
+# ESP must hold BOOTAA64.EFI, which embeds the whole memdisk (now 80M).
+dd if=/dev/zero of=/tmp/efiboot.img bs=1M count=96 status=none
 mkfs.vfat -n BULUMOS /tmp/efiboot.img >/dev/null
 mmd -i /tmp/efiboot.img ::/EFI ::/EFI/BOOT
 mcopy -i /tmp/efiboot.img iso/EFI/BOOT/BOOTAA64.EFI ::/EFI/BOOT/

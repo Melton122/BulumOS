@@ -1,6 +1,7 @@
 #!/bin/bash
 # probe the deb install failure on the guest
 set -e
+: "${BULUMOS_ROOT_PASSWORD:?Set BULUMOS_ROOT_PASSWORD to the password used to build the image}"
 cd /home/melton/BulumOS
 ARCH=${1:-arm64}
 if [ "$ARCH" = arm64 ]; then
@@ -32,7 +33,7 @@ $QEMU $MACH -cpu $CPU -m 512M \
 echo "waiting 75s..."
 sleep 75
 tmux send-keys -t qemu 'root' Enter; sleep 2
-tmux send-keys -t qemu 'root' Enter; sleep 3
+tmux send-keys -t qemu "$BULUMOS_ROOT_PASSWORD" Enter; sleep 3
 send() { tmux send-keys -t qemu "$1" Enter; sleep 4; }
 echo "=== probe steps ==="
 send "busybox | head -1; echo ----"

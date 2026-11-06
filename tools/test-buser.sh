@@ -1,9 +1,10 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # BulumOS Phase 9.3: user management host-side smoke test (buser)
 # Full add/del/passwd/su lifecycle runs in the VM (test-buser-vm.sh) where
 # /etc/passwd, /etc/shadow and busybox mkpasswd are the real ones.
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 BIN="${BUSER_BIN_DIR:-/tmp/buser-host}"
 mkdir -p "$BIN"
 if [ -z "${BUSER_BIN_DIR:-}" ]; then

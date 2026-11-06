@@ -20,17 +20,27 @@ app framework, and a signed package manager. Bootable and testable in QEMU on
 The public repo intentionally trims the Linux kernel source tree (several GB);
 keep only the per-arch configs (`kernel/.config.*`) and the custom driver
 (`kernel/drivers/bulum`). A full build needs a configured kernel + busybox.
+`bash rebuild-userspace.sh` prompts for a unique root password (at least 12
+characters); set `BULUMOS_ROOT_PASSWORD` for a non-interactive build. The
+build generates `/etc/shadow` with that root password and a locked `melton`
+account; no shared password is shipped. The x86-64 userspace build provisions
+its own root password as well; provide the same environment variable to use
+the same password for both architectures.
+Telnet is disabled by default, and Dropbear accepts public-key authentication
+only; add an SSH public key to `/root/.ssh/authorized_keys` to enable remote
+administration.
 
 ```sh
 # host-side unit suites (build tools run on a plain Ubuntu/glibc host)
 bash tools/test-bpk.sh          # package manager host checks (23 checks)
+bash tools/test-security-defaults.sh # credential and service defaults
 
 # VM e2e on both architectures (QEMU + UEFI)
 bash tools/test-bpk-vm.sh arm64
 bash tools/test-bpk-vm.sh x86_64
 
-# interactive VM
-bash tools/boot-bpk-vm.sh arm64    # login root / root
+# interactive VM (log in using the password chosen during the build)
+bash tools/boot-bpk-vm.sh arm64
 ```
 
 Inside the VM:

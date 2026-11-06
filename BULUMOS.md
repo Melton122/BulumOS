@@ -88,8 +88,8 @@ bnet apply                  apply /etc/bulum/network.conf
   listeners, iptables presence.  `--root <dir>` audits a tree
   (`BSECURE_ANY_OWNER=1` tolerates build-host ownership in fixtures).
   Exit code: 0 clean, 1 warnings, 2 critical.  VM audit: 16 passed,
-  4 warning, 0 critical (warnings are intentional: telnetd/httpd enabled,
-  no iptables userspace).
+  2 warning, 0 critical (warnings include httpd enabled and no iptables
+  userspace; telnetd is disabled by default).
 - `bfirewall status|enable|disable`: probes `/proc/net/netfilter` +
   `/proc/net/ip_tables_names` + for the iptables binary; since the kernel is
   built without iptables userspace (`CONFIG_IP_NF_IPTABLES=m`, no tool, no
@@ -114,7 +114,8 @@ bnet apply                  apply /etc/bulum/network.conf
 
 ## Services (bctl)
 
-syslogd, mdev, disk, network (`bnet apply`), dropbear, httpd, telnetd, crond,
+syslogd, mdev, disk, network (`bnet apply`), dropbear, httpd, telnetd (disabled
+by default), crond,
 ntpd — meta-driven deps, pidfiles, respawn with crash-loop guard (5/min → 30s
 backoff), `service.state` files under `/var/run/bulum`, boot log
 `/var/log/bulum/boot.log`.

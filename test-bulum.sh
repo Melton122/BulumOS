@@ -1,11 +1,13 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS 1.3: end-to-end bulum package manager test in the VM.
 #  - boots the UEFI image + persistent disk over virtio-net (slirp)
 #  - fetches the signed repo from the host (10.0.2.2:17474)
 #  - runs: update (good sig), update (tampered sig -> must fail),
 #    search, info, install, run, list, upgrade, remove, doctor
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
+: "${BULUMOS_ROOT_PASSWORD:?Set BULUMOS_ROOT_PASSWORD to the password used to build the image}"
 PORT=17474
 
 echo "=== starting repo server on :$PORT ==="
@@ -26,17 +28,20 @@ tmux new-session -d -s qemu "
 qemu-system-aarch64 -M virt -cpu cortex-a72 -m 512M \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd \
   -drive if=pflash,format=raw,file=/tmp/bulumos-vars.fd \
-  -drive file=/home/melton/myos/bulumos-uefi.img,format=raw,if=virtio \
-  -drive file=/home/melton/myos/disk.img,format=raw,if=virtio \
+  -drive file="$ROOT_DIR"/bulumos-uefi.img,format=raw,if=virtio \
+  -drive file="$ROOT_DIR"/disk.img,format=raw,if=virtio \
   -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
-  -nographic > /home/melton/myos/boot-bulum.log 2>&1"
+  -nographic > "$ROOT_DIR"/boot-bulum.log 2>&1"
 
 echo "waiting 70s for boot..."
 sleep 70
 tmux send-keys -t qemu 'root' Enter; sleep 2
-tmux send-keys -t qemu 'root' Enter; sleep 3
+tmux send-keys -t qemu "$BULUMOS_ROOT_PASSWORD" Enter; sleep 3
 
 send() { tmux send-keys -t qemu "$1" Enter; sleep 3; }
+
+echo "=== phase 0: reset leftover state from previous runs ==="
+send 'bulum remove hello; bulum remove bar; bulum remove upgh; echo P0-RESET-END'
 
 echo "=== phase 1: network + config + update ==="
 send 'udhcpc -i eth0; ifconfig eth0 | head -3; echo NET-END'
@@ -75,7 +80,7 @@ echo "qemu procs: $(ps -ef | grep -c '[q]emu-system' || true)"
 
 python3 - <<'EOF'
 import re
-data = open('/home/melton/myos/boot-bulum.log','rb').read().decode('utf-8','replace')
+data = open('boot-bulum.log','rb').read().decode('utf-8','replace')
 data = re.sub(r'\x1b\[[0-9;]*[A-Za-z]','',data)
 data = re.sub(r'\x1b\][^\x07]*\x07','',data)
 txt = '\n'.join(l.strip() for l in data.split('\r'))

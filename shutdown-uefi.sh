@@ -1,5 +1,6 @@
 #!/bin/bash
-cd /home/melton/myos
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
 tmux send-keys -t qemu 'poweroff' Enter
 sleep 8
 echo "=== tail ==="

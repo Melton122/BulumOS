@@ -1,7 +1,8 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS x86_64 UEFI build: grub x86_64-efi memdisk + BOOTX64.EFI + ESP + hybrid ISO.
 set -euo pipefail
-cd /home/melton/myos
+cd "$ROOT_DIR"
 
 MKIMAGE=/usr/bin/grub-mkimage
 MODS=/usr/lib/grub/x86_64-efi

@@ -1,8 +1,9 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS: build the tiny switch_root initramfs used for the default disk boot.
 # Content: /init script + static busybox with applet symlinks.
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 
 OUT=initramfs-switch.cpio.gz
 WORK=/tmp/ir-sw
@@ -54,6 +55,6 @@ EOF
 chmod 755 "$WORK/init"
 
 cd "$WORK"
-find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -9 > "/home/melton/myos/$OUT"
-cd /home/melton/myos
+find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -9 > ""$ROOT_DIR"/$OUT"
+cd "$ROOT_DIR"
 gzip -t "$OUT" && echo "initramfs-switch OK: $(du -h $OUT | cut -f1)"

@@ -1,4 +1,5 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS kernel build.
 #
 # The kernel Makefile refuses source trees whose path contains spaces
@@ -6,7 +7,7 @@
 # (created once by tools/sync-kernel-src.sh) and copy the resulting
 # Image and .config back into the repository tree.
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 
 [ -d /home/melton/ksrc/arch/arm64 ] || {
     echo "kernel build mirror missing; run: bash tools/sync-kernel-src.sh"
@@ -24,6 +25,6 @@ echo "=== building Image ==="
 make -j4 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image 2>&1 | tail -2
 
 echo "=== copying artifacts back ==="
-cp /home/melton/ksrc/.config /home/melton/myos/kernel/.config
-cp /home/melton/ksrc/arch/arm64/boot/Image /home/melton/myos/kernel/arch/arm64/boot/Image
-echo "kernel Image: $(ls -la /home/melton/myos/kernel/arch/arm64/boot/Image | awk '{print $5}') bytes"
+cp /home/melton/ksrc/.config "$ROOT_DIR"/kernel/.config
+cp /home/melton/ksrc/arch/arm64/boot/Image "$ROOT_DIR"/kernel/arch/arm64/boot/Image
+echo "kernel Image: $(ls -la "$ROOT_DIR"/kernel/arch/arm64/boot/Image | awk '{print $5}') bytes"

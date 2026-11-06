@@ -82,9 +82,9 @@ int main(int argc, char **argv)
             char size[32];
             human_bytes(dev.size_bytes, size, sizeof(size));
             printf("%-15s %-12s %-10s %-5s %-5s %-10s\n",
-                   dev.path, size, dev->is_partition ? "part" : "disk",
-                   dev->read_only ? "Y" : "N", dev->removable ? "Y" : "N",
-                   dev->mounted ? dev->mountpoint : "");
+                   dev.path, size, dev.is_partition ? "part" : "disk",
+                   dev.read_only ? "Y" : "N", dev.removable ? "Y" : "N",
+                   dev.mounted ? dev.mountpoint : "");
         }
         return 0;
     }

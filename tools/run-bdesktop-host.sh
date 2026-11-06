@@ -1,5 +1,6 @@
 #!/bin/bash
-cd /home/melton/myos
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 echo "--- version ---"
 /tmp/bdesk-host/bdesktop2 --version
 echo "--- frames (no graphics on host -> clean unavailable) ---"

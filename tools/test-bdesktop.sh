@@ -12,6 +12,7 @@ gcc -O2 -Wall -o "$BIN/bdesk_hosttest" \
     src/bwm.c src/bshell.c src/bwindow.c src/btheme.c \
     src/bapp.c src/bnotify.c src/bicon.c \
     src/bappui.c src/bsys.c src/bapps.c \
+    src/bapp_storage.c src/bstorage.c \
     src/bapp_files.c src/bapp_settings.c src/bapp_about.c \
     src/bapp_monitor.c src/bapp_network.c src/bapp_security.c \
     src/bapp_services.c src/bapp_logs.c src/bapp_users.c \

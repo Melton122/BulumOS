@@ -32,7 +32,7 @@ tmux kill-session -t qemu 2>/dev/null || true
 pkill -f qemu-system 2>/dev/null || true
 sleep 1
 
-echo "=== booting $ARCH (login: root / root) ==="
+echo "=== booting $ARCH (use the root password configured during the build) ==="
 tmux new-session -d -s qemu "
 $QEMU $MACH -cpu $CPU -m 512M \
   -drive if=pflash,format=raw,readonly=on,file=$UEFI_CODE \

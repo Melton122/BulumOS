@@ -133,6 +133,7 @@ int main(void)
     const char *toks[] = {
         "internal:files", "internal:settings", "internal:about",
         "internal:monitor", "internal:hardware", "internal:network",
+        "internal:storage",
         "internal:security",
         "internal:services", "internal:logs", "internal:users",
         "internal:packages", "internal:terminal"
@@ -149,10 +150,10 @@ int main(void)
             printf("  (app %s returned %d)\n", toks[i], id);
         }
     }
-    if (opened == 12 && okwin == 12)
-        ok("A02 all 12 apps open windows");
+    if (opened == 13 && okwin == 13)
+        ok("A02 all 13 apps open windows");
     else
-        bad("A02 all 12 apps open windows",
+        bad("A02 all 13 apps open windows",
             "some were not opened or invalid");
 
     /* A03: shared dialog + single-dialog guard */

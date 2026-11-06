@@ -1,0 +1,276 @@
+#!/usr/bin/python3
+"""BulumOS logind-compatible power service.
+
+Plasma's Leave menu does not run a command: ksmserver hands the request to
+KWorkSpace, which asks libsystemd for the caller's logind session and, having
+one, calls org.freedesktop.login1.Manager.PowerOff(). Without systemd there is
+no logind at all, so KWorkSpace reports "Could not load a session backend" and
+the menu does nothing.
+
+This service provides the small, honest part of that interface BulumOS can
+honour: one session, one seat, and power off / reboot routed to BulumOS init,
+which stops the services and powers the machine down. It is not a security
+boundary: the D-Bus policy admits local users, which matches a single-user
+desktop where anyone at the console can already power the machine off.
+
+Start-up is slow here (Python plus PyGObject on emulated hardware), so the
+bctl service starts this process without waiting for it; D-Bus activation
+covers the window until the name appears.
+"""
+
+import os
+import signal
+import subprocess
+import sys
+import time
+
+import dbus
+import dbus.mainloop.glib
+import dbus.service
+from gi.repository import GLib
+
+BUS_NAME = "org.freedesktop.login1"
+OBJ_PATH = "/org/freedesktop/login1"
+MANAGER = "org.freedesktop.login1.Manager"
+SESSION_IFACE = "org.freedesktop.login1.Session"
+SEAT_IFACE = "org.freedesktop.login1.Seat"
+PROPS = "org.freedesktop.DBus.Properties"
+
+SESSION_PATH = "/org/freedesktop/login1/session/_32"
+SEAT_PATH = "/org/freedesktop/login1/seat/seat0"
+USER_PATH = "/org/freedesktop/login1/user/_1000"
+LOG = "/var/log/bulum/blogind.log"
+BUS_NAME_OBJECT = None
+
+
+def log(message):
+    try:
+        with open(LOG, "a", encoding="utf-8") as handle:
+            handle.write("%s %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), message))
+    except OSError:
+        pass
+
+
+class Properties(dbus.service.Object):
+    """Minimal org.freedesktop.DBus.Properties over a plain dict."""
+
+    def properties(self):
+        raise NotImplementedError
+
+    @dbus.service.method(PROPS, in_signature="ss", out_signature="v")
+    def Get(self, interface, name):
+        props = self.properties()
+        if name not in props:
+            raise dbus.exceptions.DBusException(
+                "No such property %s" % name,
+                name="org.freedesktop.DBus.Error.UnknownProperty")
+        return props[name]
+
+    @dbus.service.method(PROPS, in_signature="s", out_signature="a{sv}")
+    def GetAll(self, interface):
+        return self.properties()
+
+
+class Session(Properties):
+    def __init__(self, bus, pid):
+        Properties.__init__(self, bus, SESSION_PATH)
+        self._pid = pid
+
+    def properties(self):
+        return {
+            "Id": dbus.String("_32"),
+            "User": dbus.Struct(
+                (dbus.UInt32(1000), dbus.ObjectPath(USER_PATH)), signature="uo"),
+            "Name": dbus.String("melton"),
+            "Timestamp": dbus.UInt64(0),
+            "TimestampMonotonic": dbus.UInt64(0),
+            "VTNr": dbus.UInt32(1),
+            "Seat": dbus.Struct(
+                (dbus.String("seat0"), dbus.ObjectPath(SEAT_PATH)), signature="so"),
+            "TTY": dbus.String(""),
+            "Display": dbus.String(":0"),
+            "Remote": dbus.Boolean(False),
+            "RemoteHost": dbus.String(""),
+            "Service": dbus.String("login"),
+            "Desktop": dbus.String("KDE"),
+            "Scope": dbus.String("session-1.scope"),
+            "Leader": dbus.UInt32(self._pid),
+            "Audit": dbus.UInt32(0),
+            "Type": dbus.String("x11"),
+            "Class": dbus.String("user"),
+            "Active": dbus.Boolean(True),
+            "State": dbus.String("active"),
+            "IdleHint": dbus.Boolean(False),
+            "IdleSinceHint": dbus.UInt64(0),
+            "IdleSinceHintMonotonic": dbus.UInt64(0),
+            "LockedHint": dbus.Boolean(False),
+        }
+
+
+class Seat(Properties):
+    def __init__(self, bus):
+        Properties.__init__(self, bus, SEAT_PATH)
+
+    def properties(self):
+        return {
+            "Id": dbus.String("seat0"),
+            "ActiveSession": dbus.Struct(
+                (dbus.String("_32"), dbus.ObjectPath(SESSION_PATH)), signature="so"),
+            "CanMultiSession": dbus.Boolean(False),
+            "CanTTY": dbus.Boolean(True),
+            "CanGraphical": dbus.Boolean(True),
+            "Sessions": dbus.Array([dbus.Struct(
+                (dbus.String("_32"), dbus.ObjectPath(SESSION_PATH)), signature="so")],
+                signature="(so)"),
+            "IdleHint": dbus.Boolean(False),
+            "IdleSinceHint": dbus.UInt64(0),
+            "IdleSinceHintMonotonic": dbus.UInt64(0),
+        }
+
+
+class Manager(dbus.service.Object):
+    def __init__(self, bus, session, seat):
+        dbus.service.Object.__init__(self, bus, OBJ_PATH)
+        self._session = session
+        self._seat = seat
+        self._inhibitors = []
+
+    # -- capability queries -------------------------------------------------
+    @dbus.service.method(MANAGER, in_signature="", out_signature="s")
+    def CanPowerOff(self):
+        return "yes"
+
+    @dbus.service.method(MANAGER, in_signature="", out_signature="s")
+    def CanReboot(self):
+        return "yes"
+
+    @dbus.service.method(MANAGER, in_signature="", out_signature="s")
+    def CanSuspend(self):
+        return "no"
+
+    @dbus.service.method(MANAGER, in_signature="", out_signature="s")
+    def CanHibernate(self):
+        return "no"
+
+    @dbus.service.method(MANAGER, in_signature="", out_signature="s")
+    def CanHybridSleep(self):
+        return "no"
+
+    @dbus.service.method(MANAGER, in_signature="", out_signature="s")
+    def CanSuspendThenHibernate(self):
+        return "no"
+
+    # -- session bookkeeping: what libsystemd asks for ----------------------
+    @dbus.service.method(MANAGER, in_signature="u", out_signature="o")
+    def GetSessionByPID(self, pid):
+        return dbus.ObjectPath(SESSION_PATH)
+
+    @dbus.service.method(MANAGER, in_signature="s", out_signature="o")
+    def GetSession(self, session_id):
+        return dbus.ObjectPath(SESSION_PATH)
+
+    @dbus.service.method(MANAGER, in_signature="s", out_signature="o")
+    def GetSeat(self, seat_id):
+        return dbus.ObjectPath(SEAT_PATH)
+
+    @dbus.service.method(MANAGER, in_signature="u", out_signature="o")
+    def GetUser(self, uid):
+        return dbus.ObjectPath(USER_PATH)
+
+    @dbus.service.method(MANAGER, in_signature="u", out_signature="o")
+    def GetUserByPID(self, pid):
+        return dbus.ObjectPath(USER_PATH)
+
+    @dbus.service.method(MANAGER, in_signature="", out_signature="a(susso)")
+    def ListSessions(self):
+        return [dbus.Struct((dbus.String("_32"), dbus.UInt32(1000),
+                             dbus.String("melton"), dbus.String("seat0"),
+                             dbus.ObjectPath(SESSION_PATH)), signature="susso")]
+
+    @dbus.service.method(MANAGER, in_signature="", out_signature="a(so)")
+    def ListSeats(self):
+        return [dbus.Struct((dbus.String("seat0"), dbus.ObjectPath(SEAT_PATH)),
+                            signature="so")]
+
+    @dbus.service.method(MANAGER, in_signature="", out_signature="a(ssssuuua{sv})")
+    def ListInhibitors(self):
+        return []
+
+    @dbus.service.method(MANAGER, in_signature="ssss", out_signature="h")
+    def Inhibit(self, what, who, why, mode):
+        read_fd, write_fd = os.pipe()
+        self._inhibitors.append((read_fd, write_fd))
+        return dbus.types.UnixFd(read_fd)
+
+    # -- power requests -----------------------------------------------------
+    @dbus.service.method(MANAGER, in_signature="b", out_signature="")
+    def PowerOff(self, interactive):
+        self._request("poweroff")
+
+    @dbus.service.method(MANAGER, in_signature="b", out_signature="")
+    def Reboot(self, interactive):
+        self._request("reboot")
+
+    @dbus.service.method(MANAGER, in_signature="b", out_signature="")
+    def Halt(self, interactive):
+        self._request("poweroff")
+
+    @dbus.service.signal(MANAGER, signature="b")
+    def PrepareForShutdown(self, start):
+        pass
+
+    def _request(self, action):
+        log("power request: %s" % action)
+        GLib.timeout_add(500, self._announce, action)
+
+    def _announce(self, action):
+        try:
+            self.PrepareForShutdown(True)
+        except Exception:
+            pass
+        GLib.timeout_add(300, self._execute, action)
+        return False
+
+    def _execute(self, action):
+        log("executing %s" % action)
+        try:
+            # busybox poweroff/reboot signal PID 1, which stops the services
+            # through bctl and then powers the machine down.
+            subprocess.run(["/bin/busybox", action], check=False, timeout=120,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as exc:
+            log("failed to run %s: %s" % (action, exc))
+        return False
+
+
+def main():
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    bus = dbus.SystemBus()
+    try:
+        # Keep the BusName referenced: if it is collected the name is
+        # released and every call re-activates a fresh copy of this daemon.
+        global BUS_NAME_OBJECT
+        BUS_NAME_OBJECT = dbus.service.BusName(BUS_NAME, bus=bus, do_not_queue=True)
+    except dbus.exceptions.NameExistsException:
+        log("another instance already owns %s; exiting" % BUS_NAME)
+        return 0
+
+    session = Session(bus, os.getpid())
+    seat = Seat(bus)
+    Manager(bus, session, seat)
+    log("started as %s" % BUS_NAME)
+
+    loop = GLib.MainLoop()
+
+    def on_signal(signum, frame):
+        log("signal %d, exiting" % signum)
+        loop.quit()
+
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT, on_signal)
+    loop.run()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

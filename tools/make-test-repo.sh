@@ -1,4 +1,5 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # BulumOS: build the test repository used by test-bulum.sh and test-bpk-vm.sh
 #
 #   tools/make-test-repo.sh            build debs + bpks + Packages + Release + sig
@@ -10,7 +11,7 @@
 #   tools/testrepo.key          private signing key (gitignored)
 #   rootfs/etc/bulum/keys/main.pub  public key shipped inside the OS image
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 ROOT=$(pwd)
 REPO=/tmp/bulum-repo
 KEY=$ROOT/tools/testrepo.key

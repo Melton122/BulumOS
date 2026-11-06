@@ -1,6 +1,7 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 set -euo pipefail
-cd /home/melton/myos
+cd "$ROOT_DIR"
 command -v parted >/dev/null || command -v sgdisk >/dev/null || { echo "NO parted/sgdisk"; exit 1; }
 command -v parted >/dev/null && P=parted || P=sgdisk
 

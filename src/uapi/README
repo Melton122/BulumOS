@@ -1,0 +1,21 @@
+# Vendored kernel UAPI headers (Phase 13)
+
+These are unmodified copies of the DRM userspace API headers from this
+repository's own kernel tree (`kernel/include/uapi/drm/`):
+
+    drm.h, drm_mode.h, drm_fourcc.h   (GPL-2.0 WITH Linux-syscall-note)
+
+Vendoring keeps the userspace build self-contained: Ubuntu does not ship
+`linux/drm.h` in `linux-libc-dev`, and libdrm's public headers expose the
+libdrm API rather than the raw ioctl structs we drive directly.
+
+Adjustments made to the copies:
+
+    - `#include <linux/bits.h>` and `#include <linux/const.h>` removed from
+      drm_mode.h/drm.h/drm_fourcc.h.  Those are kernel-internal headers that
+      glibc does not provide, and `BIT()`/`UL()` are not used anywhere in
+      these three files.
+
+Nothing else was changed, so ioctl numbers and struct layouts match the
+kernel exactly.  `src/bgfx.c` includes them by relative path
+(`"uapi/drm/drm.h"`) so no `-I` flag is required anywhere in the build.

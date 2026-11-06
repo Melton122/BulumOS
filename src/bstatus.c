@@ -5,6 +5,8 @@
 
 #define _GNU_SOURCE
 
+#include "bstorage.h"
+
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <stdio.h>
@@ -89,10 +91,125 @@ static void mem_line(void)
                "Memory", total / 1024, avail / 1024);
 }
 
+static int emit_storage_json(void)
+{
+    BStorageMount root;
+    BStorageUsage usage;
+    int has_root = bstorage_find_mount("/", &root) == 0 &&
+                   bstorage_usage("/", &usage) == 0;
+    printf("\"storage\":{\"disk_count\":%llu,\"mounted_filesystem_count\":%llu",
+           (unsigned long long)bstorage_disk_count(),
+           (unsigned long long)bstorage_mount_count());
+    if (has_root) {
+        printf(",\"root_source\":\"%s\",\"root_filesystem\":\"%s\",\"root_mountpoint\":\"%s\",\"root_total_bytes\":%llu,\"root_used_bytes\":%llu,"
+               "\"root_available_bytes\":%llu,\"root_read_only\":%s",
+               root.source, root.filesystem, root.target,
+               (unsigned long long)usage.total_bytes,
+               (unsigned long long)usage.used_bytes,
+               (unsigned long long)usage.available_bytes,
+               root.read_only ? "true" : "false");
+    }
+    printf("}");
+    return has_root;
+}
+
+static int emit_json(void)
+{
+    char rel[64] = "";
+    FILE *f = fopen("/proc/sys/kernel/osrelease", "r");
+    if (f) {
+        if (!fgets(rel, sizeof(rel), f))
+            rel[0] = 0;
+        fclose(f);
+        rel[strcspn(rel, "\r\n")] = 0;
+    }
+    long uptime = read_kv("/proc/uptime", "");
+    if (uptime < 0) {
+        f = fopen("/proc/uptime", "r");
+        if (f) {
+            double seconds = 0;
+            if (fscanf(f, "%lf", &seconds) != 1)
+                seconds = 0;
+            fclose(f);
+            uptime = (long)seconds;
+        }
+    }
+    long total = read_kv("/proc/meminfo", "MemTotal:");
+    long available = read_kv("/proc/meminfo", "MemAvailable:");
+    printf("{\"kernel\":\"%s\",\"uptime_seconds\":%ld,\"memory_total_kb\":%ld,"
+           "\"memory_available_kb\":%ld,\"services\":[",
+           rel, uptime < 0 ? 0 : uptime, total < 0 ? 0 : total,
+           available < 0 ? 0 : available);
+    int first = 1;
+    for (const struct svc *s = services; s->label; s++) {
+        if (!first)
+            putchar(',');
+        first = 0;
+        printf("{\"name\":\"%s\",\"running\":%s}", s->label, comm_running(s->comm) ? "true" : "false");
+    }
+    printf("],\"network\":[");
+    DIR *nd = opendir("/sys/class/net");
+    first = 1;
+    if (nd) {
+        struct dirent *entry;
+        while ((entry = readdir(nd))) {
+            if (entry->d_name[0] == '.')
+                continue;
+            char path[256], state[32] = "unknown";
+            snprintf(path, sizeof(path), "/sys/class/net/%.*s/operstate",
+                     (int)sizeof(path) / 2, entry->d_name);
+            FILE *state_file = fopen(path, "r");
+            if (state_file) {
+                if (!fgets(state, sizeof(state), state_file))
+                    state[0] = 0;
+                fclose(state_file);
+                state[strcspn(state, "\r\n")] = 0;
+            }
+            if (!first)
+                putchar(',');
+            first = 0;
+            printf("{\"name\":\"%s\",\"state\":\"%s\"}", entry->d_name, state);
+            putchar('}');
+        }
+        closedir(nd);
+    }
+    printf("],");
+    emit_storage_json();
+    puts("}");
+    return 0;
+}
+
+static void storage_line(void)
+{
+    BStorageMount root;
+    BStorageUsage usage;
+    printf("\n" C_BOLD "  Storage\n" C_RESET);
+    printf("  %-14s %llu disk(s), %llu mounted filesystem(s)\n", "Devices",
+           (unsigned long long)bstorage_disk_count(),
+           (unsigned long long)bstorage_mount_count());
+    if (bstorage_find_mount("/", &root) != 0 || bstorage_usage("/", &usage) != 0) {
+        printf("  %-14s unavailable\n", "Root filesystem");
+        return;
+    }
+    char total[32], used[32], available[32];
+    bstorage_human_bytes(usage.total_bytes, total, sizeof(total));
+    bstorage_human_bytes(usage.used_bytes, used, sizeof(used));
+    bstorage_human_bytes(usage.available_bytes, available, sizeof(available));
+    printf("  %-14s %s\n", "Root source", root.source);
+    printf("  %-14s %s\n", "Filesystem", root.filesystem);
+    printf("  %-14s %s total, %s used, %s available\n", "Capacity",
+           total, used, available);
+}
+
 int main(int argc, char **argv)
 {
-    (void)argc;
-    (void)argv;
+    if (argc > 2 || (argc == 2 && strcmp(argv[1], "--json") != 0)) {
+        fprintf(stderr, "usage: bstatus [--json]\n");
+        return 2;
+    }
+    bstorage_scan();
+    if (argc == 2)
+        return emit_json();
 
     printf(C_BOLD C_CYAN "\n  BulumOS status\n" C_RESET);
 
@@ -113,6 +230,7 @@ int main(int argc, char **argv)
     printf(C_BOLD "  %-14s" C_RESET "  Linux %s\n", "Kernel", rel);
     printf(C_BOLD "  %-14s" C_RESET "  %ld min\n", "Uptime", ups / 60);
     mem_line();
+    storage_line();
 
     printf("\n" C_BOLD "  Service status\n" C_RESET);
     int all_ok = 1;

@@ -1,8 +1,10 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS Phase 9.5: in-VM WiFi integration check
 # (no wireless HW in QEMU: bnet wifi must report no adapter; wifi service must no-op cleanly)
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
+: "${BULUMOS_ROOT_PASSWORD:?Set BULUMOS_ROOT_PASSWORD to the password used to build the image}"
 LOG=boot-wifi.log
 rm -f $LOG
 pkill -f qemu-system 2>/dev/null || true
@@ -21,7 +23,7 @@ echo "waiting 65s for boot..."
 sleep 65
 send() { tmux send-keys -t qemu "$1" Enter; sleep 2; }
 send 'root'
-send 'root'
+send "$BULUMOS_ROOT_PASSWORD"
 send 'echo WIFI-BOOT-OK'
 
 send 'bnet wifi; echo WIFI1-END'

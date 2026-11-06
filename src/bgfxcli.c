@@ -25,7 +25,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define BGFX_VERSION_STR "1.0.0"
+#define BGFX_VERSION_STR "1.1.0"
 #define CONF_PATH "/etc/bulum/graphics.conf"
 
 static void print_detailed(void)
@@ -63,8 +63,20 @@ static int cmd_status(const char *backend)
     int have = bgfx_detect(&info);
 
     if (backend && strcasecmp(backend, "drm") == 0) {
-        printf("Backend: drm (not implemented in Phase 8; framebuffer is primary)\n");
-        return 1;
+        /* Phase 13: DRM is a real backend - report its actual outcome */
+        if (bgfx_init("drm") < 0) {
+            printf("Backend: drm (unavailable: %s)\n",
+                   bgfx_info()->error[0] ? bgfx_info()->error : "no DRM card");
+            printf("Graphics: unavailable\n");
+            return 1;
+        }
+        printf("Graphics: available\n");
+        printf("Backend: drm\n");
+        printf("DRM device: %s\n", bgfx_info()->drm_path);
+        printf("Resolution: %dx%d\n", bgfx_info()->width, bgfx_info()->height);
+        printf("Pixel format: XRGB8888 (%d bpp)\n", bgfx_info()->bpp);
+        bgfx_shutdown();
+        return 0;
     }
 
     if (!have) {
@@ -106,7 +118,7 @@ int main(int argc, char **argv)
         return 0;
     }
     if (strcmp(argv[1], "--version") == 0) {
-        printf("bgfx %s (BulumOS Phase 8)\n", BGFX_VERSION_STR);
+        printf("bgfx %s (BulumOS Phase 13)\n", BGFX_VERSION_STR);
         return 0;
     }
 

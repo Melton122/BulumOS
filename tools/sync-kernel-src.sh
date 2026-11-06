@@ -1,10 +1,11 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # Create the space-free kernel build mirror at /home/melton/ksrc.
 # The kernel Makefile cannot handle the space in "Bulum OS", so the
 # build happens in a rsync mirror (source only, no build artifacts).
 # After the first sync, only .config changes are copied in/out.
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 
 echo "=== syncing kernel sources to /home/melton/ksrc (source only) ==="
 rsync -a \

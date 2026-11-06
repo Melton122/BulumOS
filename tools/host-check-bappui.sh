@@ -1,7 +1,8 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # Host compile-check for bappui + dependencies (Phase 10).
 # Compiles the framework and everything it depends on to objects on the host.
-cd /home/melton/myos
+cd "$ROOT_DIR"
 set -e
 mkdir -p /tmp/bappui-host
 gcc -Wall -Wextra -O2 -I src -c src/bappui.c -o /tmp/bappui-host/bappui.o

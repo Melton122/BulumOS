@@ -1,6 +1,7 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 
 echo "=== building hybrid ISO (El Torito + GPT ESP append; reuses /tmp/efiboot.img) ==="
 [ -f /tmp/efiboot.img ] || { echo "ESP image missing; run build-all-uefi.sh first"; exit 1; }

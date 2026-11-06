@@ -7,6 +7,7 @@
  */
 #define _GNU_SOURCE
 #include "bhw.h"
+#include "bstorage.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -284,35 +285,23 @@ int bhw_net_list(struct bhw_netif *out, int maxn)
 
 int bhw_block_count(void)
 {
-    DIR *d = opendir(SYS_BLOCK);
-    if (!d)
+    if (bstorage_scan() != 0)
         return 0;
-    int n = 0;
-    struct dirent *e;
-    while ((e = readdir(d))) {
-        if (e->d_name[0] == '.')
-            continue;
-        n++;
-    }
-    closedir(d);
-    return n;
+    return (int)bstorage_device_count();
 }
 
 int bhw_block_names(char names[][BHW_MAX_STR], int maxn)
 {
-    DIR *d = opendir(SYS_BLOCK);
-    if (!d)
+    if (bstorage_scan() != 0)
         return 0;
-    int n = 0;
-    struct dirent *e;
-    while ((e = readdir(d)) && n < maxn) {
-        if (e->d_name[0] == '.')
-            continue;
-        snprintf(names[n], BHW_MAX_STR, "%s", e->d_name);
-        n++;
+    int count = 0;
+    for (size_t i = 0; i < bstorage_device_count() && count < maxn; i++) {
+        BStorageDevice dev;
+        if (bstorage_get_device(i, &dev) == 0) {
+            snprintf(names[count++], BHW_MAX_STR, "%s", dev.name);
+        }
     }
-    closedir(d);
-    return n;
+    return count;
 }
 
 int bhw_usb_count(void)

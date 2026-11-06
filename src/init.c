@@ -2,7 +2,7 @@
  * BulumOS init - PID 1
  *
  * Boot sequence:
- *   1. mount proc/sysfs/devtmpfs/devpts/tmpfs
+ *   1. mount proc/sysfs/devtmpfs/devpts/tmpfs/run
  *   2. set hostname from /etc/hostname
  *   3. print splash banner
  *   4. run "bctl boot" (service manager) unless recovery mode
@@ -104,6 +104,7 @@ static void mount_pseudo_fs(void)
     mkdir("/sys", 0755);
     mkdir("/dev", 0755);
     mkdir("/tmp", 01777);
+    mkdir("/run", 0755);
 
     int ok = 1;
     char err[256] = "";
@@ -114,6 +115,7 @@ static void mount_pseudo_fs(void)
     mkdir("/dev/shm", 01777);
     if (mount("devpts", "/dev/pts", "devpts", 0, NULL) != 0) { ok = 0; snprintf(err, sizeof(err), "devpts: %s", strerror(errno)); }
     if (mount("tmpfs", "/tmp", "tmpfs", 0, NULL) != 0) { ok = 0; snprintf(err, sizeof(err), "tmpfs: %s", strerror(errno)); }
+    if (mount("tmpfs", "/run", "tmpfs", 0, NULL) != 0) { ok = 0; snprintf(err, sizeof(err), "run: %s", strerror(errno)); }
 
     status_line("Mounting filesystems", ok);
     if (err[0]) {
@@ -188,6 +190,19 @@ static void bctl_boot(void)
 {
     char *args[] = { "/sbin/bctl", "boot", NULL };
     run_prog(args);
+}
+
+static void run_firstboot(void)
+{
+    if (recovery_mode || access("/usr/sbin/bfirstboot", X_OK) != 0)
+        return;
+
+    out(C_CYAN "  Starting first-boot account setup...\n" C_RESET);
+    char *args[] = { "/usr/sbin/bfirstboot", NULL };
+    int rc = run_prog(args);
+    status_line("First-boot account setup", rc == 0);
+    if (rc != 0)
+        out(C_YELLOW "  Setup can be retried by running bfirstboot as root.\n" C_RESET);
 }
 
 /* VM/qemu diagnostic hook: if /etc/bulum/autotest.sh exists, run it with
@@ -302,6 +317,7 @@ int main(int argc, char **argv)
         out(C_YELLOW "  === RECOVERY MODE ===\n" C_RESET);
         out(C_GRAY "  Filesystems mounted, services not started.\n\n" C_RESET);
     } else {
+        run_firstboot();
         bctl_boot();
     }
 

@@ -1,7 +1,8 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # BulumOS Phase 9.2: logging host-side test suite (blog + logrotate)
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 BIN="${BLOG_BIN_DIR:-/tmp/blog-host}"
 mkdir -p "$BIN"
 if [ -z "${BLOG_BIN_DIR:-}" ]; then

@@ -1,4 +1,5 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS Phase 9: desktop shell verification inside the VM.
 #
 # Boots the UEFI image + persistent disk with virtio-gpu, virtio keyboard
@@ -14,9 +15,10 @@
 #   D9  theme config is parsed (no crash) via bdesktop --theme light --frames 5
 #   D10 clean shutdown
 set -e
-cd /home/melton/myos
+: "${BULUMOS_ROOT_PASSWORD:?Set BULUMOS_ROOT_PASSWORD to the password used to build the image}"
+cd "$ROOT_DIR"
 
-HMP="python3 /mnt/c/Users/melto/AppData/Local/Temp/opencode/hmp.py"
+HMP="python3 $ROOT_DIR/tools/hmp.py"
 
 boot_vm() {
     local log=$1
@@ -29,16 +31,16 @@ boot_vm() {
 qemu-system-aarch64 -M virt -cpu cortex-a72 -m 512M \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd \
   -drive if=pflash,format=raw,file=/tmp/bulumos-vars.fd \
-  -drive file=/home/melton/myos/bulumos-uefi.img,format=raw,if=virtio \
-  -drive file=/home/melton/myos/disk.img,format=raw,if=virtio \
+  -drive file="$ROOT_DIR"/bulumos-uefi.img,format=raw,if=virtio \
+  -drive file="$ROOT_DIR"/disk.img,format=raw,if=virtio \
   -netdev user,id=n0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=n0 \
   -device virtio-gpu-pci -device virtio-keyboard-pci -device virtio-mouse-pci \
   -monitor unix:/tmp/qemu-mon.sock,server,nowait \
-  -nographic > /home/melton/myos/$log 2>&1"
+  -nographic > "$ROOT_DIR"/$log 2>&1"
     echo "waiting 70s for boot..."
     sleep 70
     tmux send-keys -t qemu 'root' Enter; sleep 2
-    tmux send-keys -t qemu 'root' Enter; sleep 3
+    tmux send-keys -t qemu "$BULUMOS_ROOT_PASSWORD" Enter; sleep 3
 }
 
 send() { tmux send-keys -t qemu "$1" Enter; sleep 3; }

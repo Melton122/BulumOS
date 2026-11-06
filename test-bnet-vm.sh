@@ -1,4 +1,5 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS Phase 7: bnet + bsecure + bfirewall verification inside the VM.
 # Boots the UEFI image + persistent disk, logs in, then:
 #   - bnet status / list / info / ip / route / dns / resolve / sockets
@@ -7,17 +8,18 @@
 #   - bnet dhcp eth0 renew, bnet apply with a static config
 #   - bsecure audit: zero CRITICAL findings
 #   - bfirewall status (honest "unavailable" report on BulumOS)
-#   - bctl service states: network up, dropbear/httpd/telnetd running
-#   - telnet localhost: login with root/root, command executes (authenticated)
+#   - bctl service states: network up, dropbear/httpd running; telnetd disabled
+#   - Telnet is not enabled or listening by default
 #   - SSH from the WSL host (hostfwd :2222 -> :22) with a test key
 #   - /etc/dropbear host keys persisted (from previous boot)
 #   - clean poweroff
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
+: "${BULUMOS_ROOT_PASSWORD:?Set BULUMOS_ROOT_PASSWORD to the password used to build the image}"
 
 # ---- SSH test key: inject into rootfs, rebuild disk.img via populate ----
 ssh-keygen -t ed25519 -f /tmp/bulum_test_key -N '' -q 2>/dev/null || true
-AK=/home/melton/myos/rootfs/root/.ssh/authorized_keys
+AK="$ROOT_DIR"/rootfs/root/.ssh/authorized_keys
 cp "$AK" /tmp/ak.orig
 if ! grep -qF "$(cat /tmp/bulum_test_key.pub)" "$AK"; then
     { cat "$AK"; echo; cat /tmp/bulum_test_key.pub; } > /tmp/ak.new
@@ -36,15 +38,15 @@ tmux new-session -d -s qemu "
 qemu-system-aarch64 -M virt -cpu cortex-a72 -m 512M \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd \
   -drive if=pflash,format=raw,file=/tmp/bulumos-vars.fd \
-  -drive file=/home/melton/myos/bulumos-uefi.img,format=raw,if=virtio \
-  -drive file=/home/melton/myos/disk.img,format=raw,if=virtio \
+  -drive file="$ROOT_DIR"/bulumos-uefi.img,format=raw,if=virtio \
+  -drive file="$ROOT_DIR"/disk.img,format=raw,if=virtio \
   -netdev user,id=n0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=n0 \
-  -nographic > /home/melton/myos/boot-bnet.log 2>&1"
+  -nographic > "$ROOT_DIR"/boot-bnet.log 2>&1"
 
 echo "waiting 70s for boot..."
 sleep 70
 tmux send-keys -t qemu 'root' Enter; sleep 2
-tmux send-keys -t qemu 'root' Enter; sleep 3
+tmux send-keys -t qemu "$BULUMOS_ROOT_PASSWORD" Enter; sleep 3
 
 send() { tmux send-keys -t qemu "$1" Enter; sleep 3; }
 
@@ -99,8 +101,8 @@ echo "=== bctl services ==="
 send 'bctl status; echo N19-END'
 send 'bstatus; echo N20-END'
 
-echo "=== telnet e2e: authenticated login ==="
-send '(sleep 2; echo root; sleep 2; echo root; sleep 2; echo "echo TELNET-E2E-OK"; sleep 1; echo exit) | telnet 127.0.0.1; echo N30-END'
+echo "=== telnet disabled by default ==="
+send '[ ! -e /etc/bulum/enabled/telnetd ] && echo TELNET-DISABLED; echo N30-END'
 
 echo "=== dropbear keys persisted ==="
 send 'ls -la /etc/dropbear; echo N21-END'

@@ -1,8 +1,10 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS Phase 9.3: in-VM user management lifecycle test (buser)
 # add -> verify passwd/shadow/group -> su -> passwd -> del
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
+: "${BULUMOS_ROOT_PASSWORD:?Set BULUMOS_ROOT_PASSWORD to the password used to build the image}"
 LOG=boot-buser.log
 rm -f $LOG
 pkill -f qemu-system 2>/dev/null || true
@@ -21,7 +23,7 @@ echo "waiting 65s for boot..."
 sleep 65
 send() { tmux send-keys -t qemu "$1" Enter; sleep 2; }
 send 'root'
-send 'root'
+send "$BULUMOS_ROOT_PASSWORD"
 send 'echo BUSER-BOOT-OK'
 
 echo "=== U1: buser list ==="

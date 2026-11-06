@@ -141,12 +141,34 @@ static int cmd_list(void)
 /* Drop every line in `path` whose colon-first-field equals `name`. */
 static int rewrite_drop(const char *path, const char *name)
 {
+    struct stat st;
+    if (stat(path, &st) != 0) { perror(path); return 1; }
     FILE *in = fopen(path, "r");
     if (!in) { perror(path); return 1; }
     char *tmp = NULL;
-    asprintf(&tmp, "%s.bak", path);
-    FILE *out = fopen(tmp, "w");
-    if (!out) { fclose(in); return 1; }
+    if (asprintf(&tmp, "%s.XXXXXX", path) < 0) {
+        fclose(in);
+        return 1;
+    }
+    int fd = mkstemp(tmp);
+    if (fd < 0 || fchown(fd, st.st_uid, st.st_gid) != 0 ||
+        fchmod(fd, st.st_mode & 07777) != 0) {
+        perror(tmp);
+        if (fd >= 0) close(fd);
+        unlink(tmp);
+        fclose(in);
+        free(tmp);
+        return 1;
+    }
+    FILE *out = fdopen(fd, "w");
+    if (!out) {
+        perror(tmp);
+        close(fd);
+        unlink(tmp);
+        fclose(in);
+        free(tmp);
+        return 1;
+    }
     char *line = NULL;
     size_t cap = 0;
     ssize_t n;
@@ -156,8 +178,12 @@ static int rewrite_drop(const char *path, const char *name)
             continue;
         fputs(line, out);
     }
-    fclose(in); fclose(out);
-    int rc = rename(tmp, path);
+    int failed = ferror(in);
+    if (fclose(in) != 0 || fclose(out) != 0)
+        failed = 1;
+    int rc = failed ? -1 : rename(tmp, path);
+    if (rc != 0)
+        unlink(tmp);
     free(tmp); free(line);
     return rc != 0;
 }
@@ -218,6 +244,101 @@ static int rewrite_group_del(const char *path, const char *name)
     return rc != 0;
 }
 
+static int add_group_member(const char *path, const char *group,
+                            const char *user)
+{
+    FILE *in = fopen(path, "r");
+    if (!in) { perror(path); return 1; }
+    char *tmp = NULL;
+    if (asprintf(&tmp, "%s.bak", path) < 0) {
+        fclose(in);
+        return 1;
+    }
+    FILE *out = fopen(tmp, "w");
+    if (!out) {
+        perror(tmp);
+        fclose(in);
+        free(tmp);
+        return 1;
+    }
+
+    char *line = NULL;
+    size_t cap = 0;
+    ssize_t n;
+    int found = 0, failed = 0;
+    while ((n = getline(&line, &cap, in)) != -1) {
+        char *c1 = strchr(line, ':');
+        char *c2 = c1 ? strchr(c1 + 1, ':') : NULL;
+        char *c3 = c2 ? strchr(c2 + 1, ':') : NULL;
+        if (!c1 || !c2 || !c3 || (size_t)(c1 - line) != strlen(group) ||
+            strncmp(line, group, (size_t)(c1 - line)) != 0) {
+            if (fputs(line, out) == EOF)
+                failed = 1;
+            continue;
+        }
+
+        found = 1;
+        char *members = c3 + 1;
+        size_t member_len = strcspn(members, "\n");
+        int already_member = 0;
+        char *list = strndup(members, member_len);
+        if (!list) {
+            failed = 1;
+            break;
+        }
+        char *save = NULL;
+        for (char *entry = strtok_r(list, ",", &save); entry;
+             entry = strtok_r(NULL, ",", &save)) {
+            if (strcmp(entry, user) == 0) {
+                already_member = 1;
+                break;
+            }
+        }
+        free(list);
+
+        if (already_member) {
+            if (fputs(line, out) == EOF)
+                failed = 1;
+        } else {
+            size_t prefix_len = (size_t)(c3 + 1 - line);
+            if (fwrite(line, 1, prefix_len, out) != prefix_len ||
+                (member_len && fwrite(members, 1, member_len, out) != member_len) ||
+                (member_len && fputc(',', out) == EOF) ||
+                fprintf(out, "%s\n", user) < 0)
+                failed = 1;
+        }
+    }
+    if (ferror(in))
+        failed = 1;
+    if (fclose(in) != 0)
+        failed = 1;
+    if (fclose(out) != 0)
+        failed = 1;
+    if (!found) {
+        fprintf(stderr, "buser: group '%s' not found\n", group);
+        failed = 1;
+    }
+    if (!failed && rename(tmp, path) != 0) {
+        perror(path);
+        failed = 1;
+    }
+    if (failed)
+        unlink(tmp);
+    free(tmp);
+    free(line);
+    return failed;
+}
+
+static int configure_desktop_groups(const char *user)
+{
+    static const char *groups[] = { "users", "video", "input" };
+    for (size_t i = 0; i < sizeof(groups) / sizeof(groups[0]); i++) {
+        if (add_group_member(gr_path(), groups[i], user) != 0)
+            return 1;
+    }
+    return 0;
+}
+
 static int cmd_add(int argc, char **argv)
 {
     if (argc < 1) {
@@ -230,7 +351,8 @@ static int cmd_add(int argc, char **argv)
         fprintf(stderr, C_RED "buser:" C_RESET " user '%s' already exists\n", name);
         return 1;
     }
-    if (strpbrk(name, ":/ \t\n\\") || !*name) {
+    if (strpbrk(name, ":/ \t\n\\") || !*name || name[0] == '-' ||
+        strlen(name) > 32) {
         fprintf(stderr, C_RED "buser:" C_RESET " invalid username '%s'\n", name);
         return 2;
     }
@@ -258,6 +380,10 @@ static int cmd_add(int argc, char **argv)
     }
     if (!pw1[0]) {
         fprintf(stderr, C_RED "buser:" C_RESET " empty password not allowed\n");
+        return 1;
+    }
+    if (strlen(pw1) < 12) {
+        fprintf(stderr, "buser: password must be at least 12 characters\n");
         return 1;
     }
     char hash[256];
@@ -289,9 +415,32 @@ static int cmd_add(int argc, char **argv)
         if (prof) { fprintf(prof, "# %s profile\n", name); fclose(prof); }
     }
 
+    if (configure_desktop_groups(name) != 0) {
+        fprintf(stderr, "buser: account created, but desktop groups could not be updated\n");
+        return 1;
+    }
     printf(C_GREEN "[ OK ]" C_RESET " user '%s' created (uid %u, home %s)\n",
            name, (unsigned)uid, home);
     return 0;
+}
+
+static int cmd_desktop(int argc, char **argv)
+{
+    if (argc < 1) {
+        fprintf(stderr, "usage: buser desktop USER\n");
+        return 2;
+    }
+    if (!is_root()) {
+        fprintf(stderr, C_RED "buser:" C_RESET " must be root\n");
+        return 1;
+    }
+    const char *name = argv[0];
+    struct passwd *pw = getpwnam(name);
+    if (!pw || pw->pw_uid < 1000 || strcmp(name, "root") == 0) {
+        fprintf(stderr, "buser: expected an existing regular user\n");
+        return 1;
+    }
+    return configure_desktop_groups(name);
 }
 
 static int cmd_del(int argc, char **argv)
@@ -335,6 +484,11 @@ static int cmd_passwd(int argc, char **argv)
         fprintf(stderr, C_RED "buser:" C_RESET " no such user '%s'\n", name);
         return 1;
     }
+    struct passwd *current = getpwuid(getuid());
+    if (!is_root() && (!current || strcmp(current->pw_name, name) != 0)) {
+        fprintf(stderr, C_RED "buser:" C_RESET " must be root to change another user's password\n");
+        return 1;
+    }
     char pw1[128], pw2[128];
     if (prompt_password(pw1, sizeof(pw1), "New password: ") != 0) return 1;
     if (prompt_password(pw2, sizeof(pw2), "Retype password: ") != 0) return 1;
@@ -344,6 +498,10 @@ static int cmd_passwd(int argc, char **argv)
     }
     if (!pw1[0]) {
         fprintf(stderr, C_RED "buser:" C_RESET " empty password not allowed\n");
+        return 1;
+    }
+    if (strlen(pw1) < 12) {
+        fprintf(stderr, "buser: password must be at least 12 characters\n");
         return 1;
     }
     char hash[256];
@@ -395,6 +553,7 @@ static void usage(void)
     printf("usage: buser <cmd> [args]\n"
            "  list                 list users + groups\n"
            "  add USER [shell]     add user (prompts for password)\n"
+           "  desktop USER         grant desktop device groups to a regular user\n"
            "  del USER             remove user\n"
            "  passwd [USER]        set password (defaults to current user)\n"
            "  groups [USER]        show user's groups\n");
@@ -408,6 +567,7 @@ int main(int argc, char **argv)
 
     if (strcmp(cmd, "list") == 0)   return cmd_list();
     if (strcmp(cmd, "add") == 0)    return cmd_add(n, args);
+    if (strcmp(cmd, "desktop") == 0) return cmd_desktop(n, args);
     if (strcmp(cmd, "del") == 0)    return cmd_del(n, args);
     if (strcmp(cmd, "passwd") == 0) return cmd_passwd(n, args);
     if (strcmp(cmd, "groups") == 0) return cmd_groups(n, args);

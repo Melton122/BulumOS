@@ -56,7 +56,9 @@
 
 #define MAX_SVC  128
 #define MAX_DEPS 16
-#define START_TIMEOUT 8
+/* udev must populate the device database before Xorg starts, which on
+ * emulated hardware can take well over the old 8 second budget. */
+#define START_TIMEOUT 25
 #define STOP_TIMEOUT 15
 
 typedef struct {

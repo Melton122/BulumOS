@@ -29,6 +29,7 @@ int bapp_settings_open(void);
 int bapp_packages_open(void);
 int bapp_monitor_open(void);
 int bapp_hardware_open(void);
+int bapp_storage_open(void);
 int bapp_network_open(void);
 int bapp_security_open(void);
 int bapp_services_open(void);

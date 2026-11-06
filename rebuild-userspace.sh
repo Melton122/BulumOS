@@ -1,6 +1,10 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
+echo "=== provisioning root password ==="
+bash tools/mk-shadow.sh
+unset BULUMOS_ROOT_PASSWORD
 echo "=== rebuilding init ==="
 aarch64-linux-gnu-gcc -static -O2 -Wall -o src/init src/init.c 2>&1 | grep -E 'error|warning' | head -5 || true
 file src/init | head -c 100
@@ -13,7 +17,7 @@ rm -f rootfs/sbin/init
 cp src/init rootfs/sbin/init
 chmod 755 rootfs/sbin/init
 echo "=== bstatus + blog ==="
-aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/sbin/bstatus src/bstatus.c
+aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/sbin/bstatus src/bstatus.c src/bstorage.c
 aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/sbin/blog src/blog.c
 chmod 755 rootfs/sbin/bstatus rootfs/sbin/blog
 echo "=== bulum package manager ==="
@@ -41,7 +45,6 @@ chmod 755 rootfs/usr/bin/buser
 echo "=== Phase 9.1: time ==="
 aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/btime src/btime.c
 chmod 755 rootfs/usr/bin/btime
-chmod 644 rootfs/etc/TZ rootfs/etc/ntp.conf
 echo "=== Phase 8: graphics + input ==="
 aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bgfxinfo src/bgfxinfo.c src/bgfx.c
 aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bgfxdemo src/bgfxdemo.c src/bgfx.c
@@ -55,6 +58,7 @@ aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bdesktop \
     src/bgfx.c src/binput.c src/bwindow.c src/btheme.c \
     src/bapp.c src/bnotify.c src/bicon.c \
     src/bappui.c src/bsys.c src/bapps.c \
+    src/bapp_storage.c src/bstorage.c \
     src/bapp_files.c src/bapp_settings.c src/bapp_about.c \
     src/bapp_monitor.c src/bapp_network.c src/bapp_security.c \
     src/bapp_services.c src/bapp_logs.c src/bapp_users.c \
@@ -183,13 +187,18 @@ EOF
 fi
 chmod 644 rootfs/etc/bulum/associations.conf
 echo "=== Phase 11: hardware tools ==="
-aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bhardware src/bhardware.c src/bhw.c
-aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bdevices src/bdevices.c src/bhw.c
-aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bdriver src/bdriver.c src/bhw.c
-aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bnetwork src/bnetwork.c src/bhw.c
-aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bpower src/bpower.c src/bhw.c
+aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bhardware src/bhardware.c src/bhw.c src/bstorage.c
+aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bdevices src/bdevices.c src/bhw.c src/bstorage.c
+aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bdriver src/bdriver.c src/bhw.c src/bstorage.c
+aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bnetwork src/bnetwork.c src/bhw.c src/bstorage.c
+aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bpower src/bpower.c src/bhw.c src/bstorage.c
 chmod 755 rootfs/usr/bin/bhardware rootfs/usr/bin/bdevices rootfs/usr/bin/bdriver rootfs/usr/bin/bnetwork rootfs/usr/bin/bpower
 echo "=== network config + permissions ==="
+echo "=== Phase 13: storage CLIs ==="
+for t in bdisks bmount bdf bdu bfsck bformat; do
+    aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/$t src/$t.c src/bstorage.c
+    chmod 755 rootfs/usr/bin/$t
+done
 chmod 644 rootfs/etc/bulum/network.conf rootfs/etc/hosts rootfs/etc/resolv.conf
 chmod 700 rootfs/root
 cp /usr/aarch64-linux-gnu/lib/libnss_dns.so.2 /usr/aarch64-linux-gnu/lib/libnss_files.so.2 rootfs/lib/ 2>/dev/null
@@ -200,8 +209,8 @@ bash tools/build-official-repo.sh --bootstrap
 bash tools/seed-rootfs-db.sh aarch64
 echo "=== rebuilding full initramfs ==="
 cd rootfs
-find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -9 > /home/melton/myos/initramfs.cpio.gz
-cd /home/melton/myos
+find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -9 > "$ROOT_DIR"/initramfs.cpio.gz
+cd "$ROOT_DIR"
 gzip -t initramfs.cpio.gz && echo "full initramfs OK: $(du -h initramfs.cpio.gz | cut -f1)"
 echo "=== rebuilding switch initramfs ==="
 bash build-switch-initramfs.sh 2>&1 | tail -1

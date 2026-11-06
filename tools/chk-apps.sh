@@ -1,7 +1,9 @@
 #!/bin/bash
-cd /home/melton/myos
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 fails=0
 for f in bappui.c bsys.c bapps.c \
+         bapp_storage.c bstorage.c \
          bapp_files.c bapp_settings.c bapp_about.c bapp_monitor.c \
          bapp_network.c bapp_security.c bapp_services.c bapp_logs.c \
          bapp_users.c bapp_packages.c bapp_terminal.c; do

@@ -1,7 +1,8 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # Fix x86 rootfs stragglers: rebuild bctl + init, swap in x86 dropbear + glibc.
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 RFS=rootfs-x86
 
 echo "=== rebuild init + bctl for x86 ==="

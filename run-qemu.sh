@@ -1,9 +1,10 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS QEMU runner (headless: no GPU/input devices, initramfs boot)
 # Usage: ./run-qemu.sh [recovery]
 # A VM without graphics hardware exercises the headless path:
 # "Graphics: unavailable / Console mode: active" must be a normal result.
-cd /home/melton/myos
+cd "$ROOT_DIR"
 CMD="console=ttyAMA0 rdinit=/sbin/init"
 if [ "$1" = "recovery" ]; then
   CMD="$CMD recovery"

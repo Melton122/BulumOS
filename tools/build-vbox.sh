@@ -1,7 +1,8 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # BulumOS VirtualBox x86_64 build: UEFI ISO with root=/dev/sda (SATA), console on screen.
 set -euo pipefail
-cd /home/melton/myos
+cd "$ROOT_DIR"
 
 MKIMAGE=/usr/bin/grub-mkimage
 MODS=/usr/lib/grub/x86_64-efi

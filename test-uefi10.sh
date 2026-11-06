@@ -1,7 +1,9 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS 1.2 bctl test v2: service manager, deps, respawn, enable/disable
 set -e
-cd /home/melton/myos
+: "${BULUMOS_ROOT_PASSWORD:?Set BULUMOS_ROOT_PASSWORD to the password used to build the image}"
+cd "$ROOT_DIR"
 cp /usr/share/AAVMF/AAVMF_VARS.fd /tmp/bulumos-vars.fd
 tmux kill-session -t qemu 2>/dev/null || true
 pkill -f qemu-system 2>/dev/null || true
@@ -11,14 +13,14 @@ tmux new-session -d -s qemu "
 qemu-system-aarch64 -M virt -cpu cortex-a72 -m 512M \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd \
   -drive if=pflash,format=raw,file=/tmp/bulumos-vars.fd \
-  -drive file=/home/melton/myos/bulumos-uefi.img,format=raw,if=virtio \
-  -drive file=/home/melton/myos/disk.img,format=raw,if=virtio \
-  -nographic > /home/melton/myos/boot-uefi10.log 2>&1"
+  -drive file="$ROOT_DIR"/bulumos-uefi.img,format=raw,if=virtio \
+  -drive file="$ROOT_DIR"/disk.img,format=raw,if=virtio \
+  -nographic > "$ROOT_DIR"/boot-uefi10.log 2>&1"
 
 echo "waiting 70s for boot..."
 sleep 70
 tmux send-keys -t qemu 'root' Enter; sleep 2
-tmux send-keys -t qemu 'root' Enter; sleep 3
+tmux send-keys -t qemu "$BULUMOS_ROOT_PASSWORD" Enter; sleep 3
 tmux send-keys -t qemu '_U='$(date +%s)'' Enter; sleep 1
 
 send() { tmux send-keys -t qemu "$1" Enter; sleep 3; }
@@ -44,7 +46,7 @@ echo "qemu procs: $(ps -ef | grep -c '[q]emu-system' || true)"
 
 python3 - <<'EOF'
 import re
-data = open('/home/melton/myos/boot-uefi10.log','rb').read().decode('utf-8','replace')
+data = open('boot-uefi10.log','rb').read().decode('utf-8','replace')
 data = re.sub(r'\x1b\[[0-9;]*[A-Za-z]','',data); data = re.sub(r'\x1b\][^\x07]*\x07','',data)
 txt = '\n'.join(l.strip() for l in data.split('\r'))
 

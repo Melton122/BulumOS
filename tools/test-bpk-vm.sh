@@ -13,6 +13,7 @@
 set -e
 cd /home/melton/BulumOS
 ARCH=${1:-arm64}
+: "${BULUMOS_ROOT_PASSWORD:?Set BULUMOS_ROOT_PASSWORD to the password used to build the image}"
 
 PORT_MAIN=17474
 PORT_OFF=17475
@@ -72,7 +73,7 @@ $QEMU $MACH -cpu $CPU -m 512M \
 echo "waiting 75s for boot..."
 sleep 75
 tmux send-keys -t qemu 'root' Enter; sleep 2
-tmux send-keys -t qemu 'root' Enter; sleep 3
+tmux send-keys -t qemu "$BULUMOS_ROOT_PASSWORD" Enter; sleep 3
 
 send() { tmux send-keys -t qemu "$1" Enter; sleep 4; }
 

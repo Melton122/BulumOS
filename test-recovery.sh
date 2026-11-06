@@ -1,7 +1,8 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # recovery-mode sanity: select GRUB recovery entry, expect shell prompt
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 cp /usr/share/AAVMF/AAVMF_VARS.fd /tmp/bulumos-vars.fd
 tmux kill-session -t qemu 2>/dev/null || true
 pkill -f qemu-system 2>/dev/null || true
@@ -11,9 +12,9 @@ tmux new-session -d -s qemu "
 qemu-system-aarch64 -M virt -cpu cortex-a72 -m 512M \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd \
   -drive if=pflash,format=raw,file=/tmp/bulumos-vars.fd \
-  -drive file=/home/melton/myos/bulumos-uefi.img,format=raw,if=virtio \
-  -drive file=/home/melton/myos/disk.img,format=raw,if=virtio \
-  -nographic > /home/melton/myos/boot-recovery.log 2>&1"
+  -drive file="$ROOT_DIR"/bulumos-uefi.img,format=raw,if=virtio \
+  -drive file="$ROOT_DIR"/disk.img,format=raw,if=virtio \
+  -nographic > "$ROOT_DIR"/boot-recovery.log 2>&1"
 echo "trying to select recovery entry (send loop)..."
 for i in $(seq 1 18); do
     tmux send-keys -t qemu Down Enter
@@ -28,7 +29,7 @@ sleep 8
 pkill -f qemu-system 2>/dev/null || true
 python3 - <<'EOF'
 import re
-txt = open('/home/melton/myos/boot-recovery.log','rb').read().decode('utf-8','replace')
+txt = open('boot-recovery.log','rb').read().decode('utf-8','replace')
 txt = re.sub(r'\x1b\[[0-9;]*[A-Za-z]','',txt)
 print('PASS recovery banner' if '=== RECOVERY MODE ===' in txt else 'FAIL recovery banner')
 print('PASS recovery shell'  if 'RECOVERY_OK' in txt else 'FAIL recovery shell')

@@ -1,7 +1,8 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # BulumOS Phase 9.4: USB host-side test (busb + mdev.conf)
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 BIN="${BUSB_BIN_DIR:-/tmp/busb-host}"
 mkdir -p "$BIN"
 if [ -z "${BUSB_BIN_DIR:-}" ]; then

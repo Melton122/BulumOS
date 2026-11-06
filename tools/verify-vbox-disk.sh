@@ -1,5 +1,6 @@
 #!/bin/bash
-cd /home/melton/myos
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 echo "== ESP bytes =="
 dd if=bulumos-vbox.img of=/tmp/esp1.fat bs=1M skip=1 count=72 status=none
 mcopy -i /tmp/esp1.fat ::/EFI/BOOT/BOOTX64.EFI /tmp/out.efi && ls -la /tmp/out.efi

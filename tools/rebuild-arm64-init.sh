@@ -1,6 +1,7 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 RFS=rootfs
 
 echo "=== rebuild arm64 init (uname banner) ==="
@@ -10,8 +11,8 @@ echo "arm64 init rebuilt"
 
 echo "=== incorp into arm64 initramfs + disk ==="
 cd "$RFS"
-find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -9 > /home/melton/myos/initramfs-full.cpio.gz
-cd /home/melton/myos
+find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -9 > "$ROOT_DIR"/initramfs-full.cpio.gz
+cd "$ROOT_DIR"
 gzip -t initramfs-full.cpio.gz && echo "initramfs-full-ok"
 SRC=rootfs IMG=disk.img bash tools/populate-disk.sh 2>&1 | grep -E 'creating' | head -3
 echo "=== rebuild arm64 UEFI (memdisk embeds new initramfs) ==="

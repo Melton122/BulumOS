@@ -101,6 +101,7 @@ int bapps_open(const char *exec)
     if (strcmp(name, "packages") == 0)   return bapp_packages_open();
     if (strcmp(name, "monitor") == 0)    return bapp_monitor_open();
     if (strcmp(name, "hardware") == 0)   return bapp_hardware_open();
+    if (strcmp(name, "storage") == 0)    return bapp_storage_open();
     if (strcmp(name, "network") == 0)    return bapp_network_open();
     if (strcmp(name, "security") == 0)   return bapp_security_open();
     if (strcmp(name, "services") == 0)   return bapp_services_open();

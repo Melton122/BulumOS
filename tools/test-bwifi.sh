@@ -1,7 +1,8 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # BulumOS Phase 9.5: WiFi command layer tests (bnet wifi)
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 BIN=/tmp/bnet-wifi-host
 mkdir -p "$BIN"
 gcc -O2 -Wall -o "$BIN/bnet" src/bnet.c || { echo "build failed"; exit 1; }

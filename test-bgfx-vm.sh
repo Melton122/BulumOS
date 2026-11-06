@@ -1,4 +1,5 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS Phase 8: graphics + input verification inside the VM.
 #
 # Boots the UEFI image + persistent disk with virtio-gpu, virtio
@@ -21,17 +22,18 @@
 #   G16 headless boot: graphics unavailable, console mode, service ok
 #   G17 clean shutdown
 set -e
-cd /home/melton/myos
+: "${BULUMOS_ROOT_PASSWORD:?Set BULUMOS_ROOT_PASSWORD to the password used to build the image}"
+cd "$ROOT_DIR"
 
 # ---- SSH test key: inject into rootfs, rebuild disk.img via populate ----
 ssh-keygen -t ed25519 -f /tmp/bulum_test_key -N '' -q 2>/dev/null || true
-AK=/home/melton/myos/rootfs/root/.ssh/authorized_keys
+AK="$ROOT_DIR"/rootfs/root/.ssh/authorized_keys
 cp "$AK" /tmp/ak.orig
 cat /tmp/bulum_test_key.pub >> "$AK"
 bash tools/populate-disk.sh > /tmp/populate.log 2>&1 || { echo "populate failed"; tail -5 /tmp/populate.log; exit 1; }
 cp /tmp/ak.orig "$AK"
 
-HMP="python3 /mnt/c/Users/melto/AppData/Local/Temp/opencode/hmp.py"
+HMP="python3 $ROOT_DIR/tools/hmp.py"
 
 boot_vm() {
     # $1 = log file, $2 = "gfx" or "headless"
@@ -48,16 +50,16 @@ boot_vm() {
 qemu-system-aarch64 -M virt -cpu cortex-a72 -m 512M \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd \
   -drive if=pflash,format=raw,file=/tmp/bulumos-vars.fd \
-  -drive file=/home/melton/myos/bulumos-uefi.img,format=raw,if=virtio \
-  -drive file=/home/melton/myos/disk.img,format=raw,if=virtio \
+  -drive file="$ROOT_DIR"/bulumos-uefi.img,format=raw,if=virtio \
+  -drive file="$ROOT_DIR"/disk.img,format=raw,if=virtio \
   -netdev user,id=n0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=n0 \
   $extra \
   -monitor unix:/tmp/qemu-mon.sock,server,nowait \
-  -nographic > /home/melton/myos/$log 2>&1"
+  -nographic > "$ROOT_DIR"/$log 2>&1"
     echo "waiting 70s for boot..."
     sleep 70
     tmux send-keys -t qemu 'root' Enter; sleep 2
-    tmux send-keys -t qemu 'root' Enter; sleep 3
+    tmux send-keys -t qemu "$BULUMOS_ROOT_PASSWORD" Enter; sleep 3
 }
 
 send() { tmux send-keys -t qemu "$1" Enter; sleep 3; }
@@ -89,10 +91,10 @@ echo "=== G10: keyboard events (HMP sendkey) ==="
 send 'binputtest --timeout 40 > /tmp/binput.log 2>&1 & echo KBD-STARTED'
 sleep 2
 $HMP "sendkey a" || true
-sleep 4
+sleep 2
 $HMP "sendkey b" || true
-sleep 3
-send 'grep -c "KEY_A\|KEY_B" /tmp/binput.log; grep -m2 "KEY_A\|KEY_B" /tmp/binput.log; echo G10-END'
+sleep 4
+send 'cat /tmp/binput.log; grep -Ec "KEY_A|KEY_B" /tmp/binput.log; grep -Em2 "KEY_A|KEY_B" /tmp/binput.log; echo G10-END'
 
 echo "=== G11: mouse events (HMP mouse_move/mouse_button) ==="
 sleep 2
@@ -102,7 +104,7 @@ sleep 2
 $HMP "mouse_button 0" || true
 $HMP "mouse_move -2 4" || true
 sleep 3
-send 'grep -m4 "X \|Y \|LEFT" /tmp/binput.log; echo G11-END'
+send 'grep -Em4 "X |Y |LEFT" /tmp/binput.log; echo G11-END'
 
 echo "=== G12: graphics service ==="
 send 'bctl status graphics; cat /var/run/bulum/graphics.state; echo G12-END'

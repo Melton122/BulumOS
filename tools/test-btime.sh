@@ -1,8 +1,9 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # BulumOS Phase 9.1: time host-side test suite.
 #   tools/test-btime.sh  build host btime + run checks against a rootfs sandbox
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 BIN="${BTIME_BIN_DIR:-/tmp/btime-host}"
 mkdir -p "$BIN"
 SANDBOX=$(mktemp -d)

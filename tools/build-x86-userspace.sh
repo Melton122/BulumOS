@@ -1,8 +1,9 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # Build x86_64 userspace: rootfs-x86 + x86 initramfses + x86 disk image.
 # Leaves the arm64 (default) artifacts untouched. Run from any cwd.
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 
 RFS=rootfs-x86
 BB=/tmp/bb-x86.busybox
@@ -12,9 +13,12 @@ echo "=== 1. clone rootfs -> rootfs-x86 ==="
 rm -rf "$RFS"
 mkdir -p "$RFS"
 cd rootfs
-find . -mindepth 1 ! -path './dev' ! -path './dev/*' -exec cp -a --parents {} "/home/melton/myos/$RFS/" \;
-cd /home/melton/myos
+find . -mindepth 1 ! -path './dev' ! -path './dev/*' -exec cp -a --parents {} ""$ROOT_DIR"/$RFS/" \;
+cd "$ROOT_DIR"
 mkdir -p "$RFS/dev"
+echo "=== provisioning x86 root password ==="
+BULUMOS_ROOTFS="$ROOT_DIR/$RFS" bash tools/mk-shadow.sh
+unset BULUMOS_ROOT_PASSWORD
 cp "$BB" "$RFS/bin/busybox"
 chmod 755 "$RFS/bin/busybox"
 
@@ -22,7 +26,7 @@ echo "=== 2. compile x86_64 binaries ==="
 # init
 gcc -static -O2 -Wall -s -o "$RFS/sbin/init" src/init.c 2>&1 | grep -E 'error|warning' | head -5 || true
 chmod 755 "$RFS/sbin/init"
-for item in "sbin/bstatus src/bstatus.c" "sbin/blog src/blog.c" "sbin/bctl src/bctl.c" \
+for item in "sbin/bstatus src/bstatus.c src/bstorage.c" "sbin/blog src/blog.c" "sbin/bctl src/bctl.c" \
             "sbin/bulum src/bulum.c src/bulum_crypto.c" \
             "usr/bin/bterm src/bterm.c" "bin/bsh src/bsh.c" \
             "usr/bin/bnet src/bnet.c" "usr/bin/bsecure src/bsecure.c" "usr/bin/bfirewall src/bfirewall.c" \
@@ -40,6 +44,7 @@ gcc -static -O2 -s -o "$RFS/usr/bin/bdesktop" \
     src/bgfx.c src/binput.c src/bwindow.c src/btheme.c \
     src/bapp.c src/bnotify.c src/bicon.c \
     src/bappui.c src/bsys.c src/bapps.c \
+    src/bapp_storage.c src/bstorage.c \
     src/bapp_files.c src/bapp_settings.c src/bapp_about.c \
     src/bapp_monitor.c src/bapp_network.c src/bapp_security.c \
     src/bapp_services.c src/bapp_logs.c src/bapp_users.c \
@@ -66,21 +71,28 @@ fi
 chmod 755 "$RFS"/lib/libnss_*.so.2 2>/dev/null || true
 
 echo "=== 4. services (arch-independent, into rootfs-x86) ==="
-sed 's|myos/rootfs|myos/rootfs-x86|' tools/install-services.sh > /tmp/install-services-x86.sh
-bash /tmp/install-services-x86.sh 2>&1 | tail -2
+BULUMOS_ROOTFS="$ROOT_DIR/$RFS" bash tools/install-services.sh
 
 echo "=== 4.5 Phase 12: seeded package db (x86_64) ==="
 bash tools/seed-rootfs-db.sh x86_64
 
 echo "=== 5. full initramfs (x86) ==="
 cd "$RFS"
-find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -9 > /home/melton/myos/initramfs-full-x86.cpio.gz
-cd /home/melton/myos
+find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -9 > "$ROOT_DIR"/initramfs-full-x86.cpio.gz
+cd "$ROOT_DIR"
 gzip -t initramfs-full-x86.cpio.gz && echo "full x86 initramfs OK: $(du -h initramfs-full-x86.cpio.gz | cut -f1)"
 
 echo "=== 6. switch initramfs (x86) ==="
-sed -e 's|rootfs/|rootfs-x86/|' -e 's|OUT=initramfs-switch.cpio.gz|OUT=initramfs-switch-x86.cpio.gz|' build-switch-initramfs.sh > /tmp/sw-x86.sh
-bash /tmp/sw-x86.sh 2>&1 | tail -1
+# generate the variant inside the repo: build-switch-initramfs.sh derives its
+# ROOT_DIR from its own path, so a /tmp copy would resolve to /tmp
+sed -e 's|rootfs/|rootfs-x86/|' -e 's|OUT=initramfs-switch.cpio.gz|OUT=initramfs-switch-x86.cpio.gz|' build-switch-initramfs.sh > "$ROOT_DIR/.sw-x86.sh"
+if ! bash "$ROOT_DIR/.sw-x86.sh" >/tmp/sw-x86.log 2>&1; then
+    cat /tmp/sw-x86.log
+    rm -f "$ROOT_DIR/.sw-x86.sh"
+    exit 1
+fi
+tail -1 /tmp/sw-x86.log
+rm -f "$ROOT_DIR/.sw-x86.sh"
 
 echo "=== 7. disk image (x86) ==="
 SRC="$RFS" IMG=disk-x86.img bash tools/populate-disk.sh 2>&1 | grep -E 'creating|OK|error' | head -5

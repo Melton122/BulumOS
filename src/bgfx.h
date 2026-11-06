@@ -1,13 +1,24 @@
 /*
- * bgfx.h - BulumOS graphics abstraction (Phase 8)
+ * bgfx.h - BulumOS graphics abstraction (Phase 8, extended Phase 13)
  *
  * Small internal graphics API.  Applications do not see DRM/fbdev
  * details: the backend is chosen at init and may change in a later
  * phase without rewriting applications.
  *
  * Backends:
- *   BGFX_BACKEND_FB   framebuffer (/dev/fb0) - Phase 8 primary
- *   BGFX_BACKEND_DRM  direct DRM/KMS         - future backend
+ *   BGFX_BACKEND_FB   framebuffer (/dev/fb0) - primary backend
+ *   BGFX_BACKEND_DRM  direct DRM/KMS (dumb buffers + modeset) - Phase 13
+ *   BGFX_BACKEND_MEM  headless software surface (no device node; used by
+ *                     the compositor's self-test and host unit tests)
+ *
+ * Phase 13 additions:
+ *   - a renderer surface (ARGB/XRGB8888, malloc'd) that the existing
+ *     primitives can target, so client-side code (e.g. the Wayland
+ *     desktop client drawing into a wl_shm buffer) reuses this exact
+ *     drawing code with no per-backend branches;
+ *   - a real DRM/KMS backend (mode resource scan, dumb buffer, addfb,
+ *     setcrtc) so the compositor owns the scanout through DRM rather
+ *     than the legacy fbdev emulation.
  *
  * Threading: not thread-safe.  One renderer at a time.
  */
@@ -17,11 +28,12 @@
 
 #include <stdint.h>
 
-#define BGFX_VERSION "1.0.0"
+#define BGFX_VERSION "1.1.0"
 
 #define BGFX_BACKEND_NONE 0
 #define BGFX_BACKEND_FB   1
 #define BGFX_BACKEND_DRM  2
+#define BGFX_BACKEND_MEM  3
 
 /* pixel formats actually supported by the framebuffer backend */
 #define BGFX_FMT_UNKNOWN  0
@@ -73,6 +85,39 @@ uint32_t bgfx_pack(uint32_t color);
  * per-pixel overhead. */
 void bgfx_blit_from(const void *buf, int pitch,
                     int sx, int sy, int w, int h, int dx, int dy);
+
+/* ---- Phase 13: renderer surfaces + target indirection -----------------
+ *
+ * A surface is a pitch-aligned ARGB/XRGB8888 pixel block owned by the
+ * caller (typically malloc'd, e.g. a Wayland wl_shm buffer).  Targeting a
+ * surface redirects the primitives above (blit/clear/put_pixel/
+ * fill_rect/draw_char/draw_text and the geometry accessors) into it, so
+ * the compositor and the client both render with one drawing core and no
+ * knowledge of each other's buffers.  This is the documented seam that
+ * lets the Wayland layer later be swapped for a native Bulum compositor
+ * without touching applications.  bgfx_target_surface(NULL) restores
+ * on-screen drawing. */
+typedef struct {
+    uint8_t *pixels;   /* malloc'd pixel block (ARGB/XRGB8888) */
+    int width;
+    int height;
+    int pitch;         /* bytes per row */
+    int bpp;           /* 32 */
+    int format;        /* BGFX_FMT_XRGB8888 */
+} bgfx_surface_t;
+
+int  bgfx_surface_create(bgfx_surface_t *s, int w, int h); /* 0 = ok */
+void bgfx_surface_destroy(bgfx_surface_t *s);
+/* 0 = ok, -1 = rejected (NULL = target the screen) */
+int  bgfx_target_surface(bgfx_surface_t *s);
+/* Returns the renderer's active target (a snapshot it owns; identify it
+ * by the `pixels` pointer), or NULL when drawing to the screen. */
+const bgfx_surface_t *bgfx_target(void);
+
+/* Read one pixel back from the active canvas (target surface, or the
+ * screen when no target is set) as 0xRRGGBB.  Used by unit tests and the
+ * compositor's self-test.  Returns 0 on success, -1 if out of range. */
+int  bgfx_read_pixel(int x, int y, uint32_t *out);
 
 /* rendering --------------------------------------------------- */
 void bgfx_begin(void);   /* start a frame (no-op on fb backend) */

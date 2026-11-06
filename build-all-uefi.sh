@@ -1,6 +1,7 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 set -euo pipefail
-cd /home/melton/myos
+cd "$ROOT_DIR"
 
 echo "=== 1. build EFI app ==="
 bash build-uefi.sh 2>&1 | grep -E '===|BOOTAA64|error'

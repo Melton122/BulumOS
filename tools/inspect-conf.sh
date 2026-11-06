@@ -1,5 +1,6 @@
 #!/bin/bash
-cd /home/melton/myos
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 echo "--- rootfs/etc/bulum ---"
 ls -la rootfs/etc/bulum/ 2>/dev/null
 echo "--- theme.conf (if any) ---"

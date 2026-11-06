@@ -1,10 +1,12 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # BulumOS self-test: serial console variant (no window needed).
-# Run from /home/melton/myos:  bash boot-serial.sh
+# Run from "$ROOT_DIR":  bash boot-serial.sh
 # Type directly in this terminal; quit with:  Ctrl+A then X
-# After boot:  login root / root, then try the same commands as boot-gfx.sh
+# After boot: log in as root with the password configured during the build.
+# Then try the same commands as boot-gfx.sh
 # (bgfxinfo, bgfx status, bgfxdemo, binputtest --list, ...)
-cd /home/melton/myos || exit 1
+cd "$ROOT_DIR" || exit 1
 pkill -f qemu-system 2>/dev/null
 sleep 1
 cp /usr/share/AAVMF/AAVMF_VARS.fd /tmp/bulumos-vars.fd

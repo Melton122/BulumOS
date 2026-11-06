@@ -1,7 +1,8 @@
 #!/bin/bash
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # Validate Phase 9 desktop integration into rootfs (no heavy initramfs/disk).
 set -e
-cd /home/melton/myos
+cd "$ROOT_DIR"
 
 echo "== building desktop into rootfs =="
 aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bdesktop \
@@ -9,6 +10,7 @@ aarch64-linux-gnu-gcc -static -O2 -s -o rootfs/usr/bin/bdesktop \
     src/bgfx.c src/binput.c src/bwindow.c src/btheme.c \
     src/bapp.c src/bnotify.c src/bicon.c \
     src/bappui.c src/bsys.c src/bapps.c \
+    src/bapp_storage.c src/bstorage.c \
     src/bapp_files.c src/bapp_settings.c src/bapp_about.c \
     src/bapp_monitor.c src/bapp_network.c src/bapp_security.c \
     src/bapp_services.c src/bapp_logs.c src/bapp_users.c \
